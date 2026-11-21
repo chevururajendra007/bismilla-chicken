@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.2 – 2026-11-21
+- Hero: full live golden rooster with a playful speech bubble ("Hey! Want to taste me? 😋" / నన్ను రుచి చూడాలనుందా?).
+- Logo: rooster photo with a BC badge. Clean white product cards with net-weight chips. Full-body hen for Natu Kodi.
+
 ## v1.2.1 – 2026-11-21
 - Removed 3 stock photos that did not match the product (leg pieces, wings, liver) – "shop photo coming soon" tile until the owner uploads his own.
 

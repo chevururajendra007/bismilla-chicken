@@ -84,7 +84,7 @@ export default function App() {
     <div className="app">
       <header className="top">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
-          <img src="/icons/icon-192.png" alt="" /> <span>Bismilla <b>Chicken</b></span>
+          <span className="logo"><img src="https://images.unsplash.com/photo-1774569445732-accb057692c5?auto=format&fit=crop&w=160&h=160&crop=faces&q=70" alt="" onError={(e) => { e.currentTarget.src = '/icons/icon-192.png' }} /><i>BC</i></span> <span>Bismilla <b>Chicken</b></span>
         </a>
         <nav>
           {installEvt && <button className="btn ghost sm" onClick={async () => { installEvt.prompt(); await installEvt.userChoice; setInstallEvt(null) }}>⬇ Install</button>}

@@ -25,7 +25,7 @@ DEFAULT_SETTINGS = {
     "rates": {"live": 220, "broiler": 280},
     "paper_rate": 220,               # kept for v1.0/1.1 compatibility (= live rate)
     "paper_rate_date": None,          # YYYY-MM-DD (IST) when last updated
-    "catalog_version": 3,
+    "catalog_version": 4,
     "rate_mode": "paper",            # "paper" = auto from paper rate, "manual" = per-product prices only
     "delivery": {
         "free_radius_km": 3.0,        # free door delivery up to this distance
@@ -113,7 +113,7 @@ DEFAULT_PRODUCTS = [
      "desc": "Cleaned liver and gizzard."},
     {"id": "natu-kodi", "name": "Natu Kodi (Country Chicken)", "name_te": "నాటు కోడి",
      "category": "Country", "unit": "kg", "pricing": "manual", "basis": "live", "multiplier": 1.0, "offset": 0,
-     "manual_price": 450, "image": IMG("1761284827145-06ea2fe270bd"), "emoji": "🐓", "available": True,
+     "manual_price": 450, "image": IMG("1759211321222-09f769570583"), "emoji": "🐓", "available": True,
      "desc": "Desi country chicken, live weight.", "badge": "Desi"},
     {"id": "sonali", "name": "Sonali / Pandem Cross", "name_te": "సోనాలి కోడి",
      "category": "Country", "unit": "kg", "pricing": "manual", "basis": "live", "multiplier": 1.0, "offset": 0,
@@ -180,6 +180,11 @@ def get_raw_products() -> list:
             s["rates"] = dict(DEFAULT_SETTINGS["rates"])
             s["paper_rate"] = s["rates"]["live"]
             save_settings(s)
+    # v1.2.2: full-body hen for Natu Kodi instead of the close-up behind a fence
+    for x in p:
+        if "1761284827145-06ea2fe270bd" in (x.get("image") or ""):
+            x["image"] = IMG("1759211321222-09f769570583")
+            store.set_json("products", p)
     # v1.2.1: stock photos that did not match the product (legs/wings/liver) -> photo placeholder
     bad = ("1682991136736-a2b44623eeba", "1527477396000-e27163b481c2", "1600180786608-28d06391d25c")
     if any(any(b in (x.get("image") or "") for b in bad) for x in p):

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { cart, navigate, qtyLabel, rupee } from '../api'
 
 const STEP = { kg: 0.5, tray: 1, piece: 1 }
-const HERO_IMG = 'https://images.unsplash.com/photo-1672787153720-e85fe802fd9f?auto=format&fit=crop&w=900&q=70'
+const HERO_IMG = 'https://images.unsplash.com/photo-1706456134122-a0702ce76de7?auto=format&fit=crop&w=900&h=900&q=75'
 
 function Photo({ src, emoji, alt }) {
   const [bad, setBad] = useState(false)
@@ -12,7 +12,7 @@ function Photo({ src, emoji, alt }) {
 
 function HeroImg() {
   const [bad, setBad] = useState(false)
-  return bad ? <div className="hero-fallback">🍗</div> : <img src={HERO_IMG} alt="Fresh chicken" onError={() => setBad(true)} />
+  return bad ? <div className="hero-fallback">🍗</div> : <img src={HERO_IMG} alt="Live country rooster" onError={() => setBad(true)} />
 }
 
 export default function Home({ menu, cfg, items }) {
@@ -55,8 +55,12 @@ export default function Home({ menu, cfg, items }) {
         <div className="hero-art">
           <div className="halo" />
           <HeroImg />
+          <div className="speech">
+            <b>Hey! Want to taste me? 😋</b>
+            <span className="te">నన్ను రుచి చూడాలనుందా?</span>
+          </div>
           <div className="float-badge b1">🛵 FREE<br /><b>within {d?.free_radius_km ?? 3} km</b></div>
-          <div className="float-badge b2">🔪 Cut fresh<br /><b>in front of you</b></div>
+          
         </div>
       </section>
 
@@ -94,6 +98,7 @@ export default function Home({ menu, cfg, items }) {
                 <h3>{p.name}</h3>
                 <p className="te small">{p.name_te}</p>
                 <p className="muted small desc">{p.desc}</p>
+                <p className="netwt">{p.unit === 'kg' ? (p.category === 'Live' || p.category === 'Country' ? 'Live weight · per kg' : 'Net wt 1 kg · Fresh cut') : 'Tray of 30'}</p>
                 <div className="price-row">
                   <b>{rupee(p.price)}<small>/{p.unit}</small></b>
                   {!p.available ? <span className="tag">Sold out</span> : q === 0 ? (
