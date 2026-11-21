@@ -70,7 +70,7 @@ DEFAULT_BRANCHES = [
         "name": "Bismilla Chicken – Vidyanagar",
         "name_te": "బిస్మిల్లా చికెన్ – విద్యానగర్",
         "address": "Vidyanagar, Kota Mandal, Tirupati Dist., Andhra Pradesh (update exact address)",
-        "lat": 14.0790, "lng": 80.0680,
+        "lat": 14.0276, "lng": 80.0235,  # NBKR / Vidyanagar area – owner pins the exact shop
         "phone": "7904711708",
         "open": True, "hours": "6:00 AM – 9:00 PM",
     },
@@ -195,6 +195,11 @@ def get_branches() -> list:
     if b is None:
         b = DEFAULT_BRANCHES
         store.set_json("branches", b)
+    # v1.4.1: the first Vidyanagar placeholder pin was ~7 km off – move it if the owner hasn't set it yet
+    for x in b:
+        if x["id"] == "vidyanagar" and x["lat"] == 14.079 and x["lng"] == 80.068:
+            x["lat"], x["lng"] = 14.0276, 80.0235
+            store.set_json("branches", b)
     return b
 
 

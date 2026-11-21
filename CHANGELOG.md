@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.4.1 – 2026-11-21
+- Address search only returns places within 30 km of the shops (no more Kota, Rajasthan). Vidyanagar placeholder pin moved to the NBKR area.
+
 ## v1.4.0 – 2026-11-21
 - **Bismilla Kitchen – Hot & Ready**: separate section for cooked dishes – Andhra Chicken Curry ₹180, Chicken 65 ₹200,
   Chicken Liver Fry ₹150, Chicken Pakoda ₹160 per plate (sample prices, owner edits them). Real dish photos (credited

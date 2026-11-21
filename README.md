@@ -1,4 +1,4 @@
-# Bismilla Chicken – Online Ordering App (v1.4.0)
+# Bismilla Chicken – Online Ordering App (v1.4.1)
 
 Fresh chicken ordering for **Bismilla Chicken**, Kota (opp. Extra Mart) & Vidyanagar, Andhra Pradesh.
 Customers order from mobile, tablet or desktop (installable PWA). The owner manages the daily **paper rate**, orders, payments and deliveries from the same app after logging in with **mobile OTP**.
