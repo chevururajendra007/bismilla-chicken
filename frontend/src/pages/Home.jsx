@@ -92,6 +92,7 @@ export default function Home({ menu, cfg, items }) {
               <div className="card-img">
                 <Photo src={p.image} emoji={p.emoji} alt={p.name} />
                 {p.badge && <span className="badge">{p.badge}</span>}
+                {p.credit && <span className="credit">{p.credit}</span>}
                 {p.pricing !== 'manual' && <span className="basis">{p.basis === 'live' ? 'Live rate' : 'Broiler rate'}</span>}
               </div>
               <div className="card-body">

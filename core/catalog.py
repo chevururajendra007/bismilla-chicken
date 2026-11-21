@@ -76,6 +76,10 @@ DEFAULT_BRANCHES = [
     },
 ]
 
+# Real photos of raw chicken from Wikimedia Commons (licence requires the credit line shown on the card)
+COMMONS = {'legs': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Raw_leg_chicken_quarters.jpg/960px-Raw_leg_chicken_quarters.jpg', 'Photo: Baoothersks, CC BY-SA 4.0, Wikimedia Commons'), 'wings': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Raw_chicken_wings.jpg/960px-Raw_chicken_wings.jpg', 'Photo: ProjectManhattan, CC BY-SA 3.0, Wikimedia Commons'), 'liver-gizzard': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/Chicken_Liver_and_Gizzard_-_Howrah_2015-04-19_8195.JPG/960px-Chicken_Liver_and_Gizzard_-_Howrah_2015-04-19_8195.JPG', 'Photo: Biswarup Ganguly, CC BY 3.0, Wikimedia Commons')}
+
+
 # Free photos (Unsplash License) as placeholders – the owner can replace each with his own shop photo
 # from Admin -> Rates -> 📷. multiplier/offset are starting points the owner tunes.
 def IMG(pid: str) -> str:
@@ -101,15 +105,15 @@ DEFAULT_PRODUCTS = [
      "desc": "Breast & thigh boneless cubes – biryani, 65, kebab."},
     {"id": "legs", "name": "Chicken Leg Pieces", "name_te": "లెగ్ పీసెస్",
      "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 1.15, "offset": 0,
-     "manual_price": 320, "image": "", "emoji": "🍗", "available": True,
+     "manual_price": 320, "image": COMMONS["legs"][0], "credit": COMMONS["legs"][1], "emoji": "🍗", "available": True,
      "desc": "Drumsticks + thighs. Great for fry & tandoori."},
     {"id": "wings", "name": "Chicken Wings", "name_te": "చికెన్ వింగ్స్",
      "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 0.95, "offset": 0,
-     "manual_price": 266, "image": "", "emoji": "🍗", "available": True,
+     "manual_price": 266, "image": COMMONS["wings"][0], "credit": COMMONS["wings"][1], "emoji": "🍗", "available": True,
      "desc": "Fresh wings for fry & lollipop."},
     {"id": "liver-gizzard", "name": "Liver & Gizzard", "name_te": "లివర్ & గిజర్డ్",
      "category": "Broiler", "unit": "kg", "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0,
-     "manual_price": 190, "image": "", "emoji": "🫀", "available": True,
+     "manual_price": 190, "image": COMMONS["liver-gizzard"][0], "credit": COMMONS["liver-gizzard"][1], "emoji": "🫀", "available": True,
      "desc": "Cleaned liver and gizzard."},
     {"id": "natu-kodi", "name": "Natu Kodi (Country Chicken)", "name_te": "నాటు కోడి",
      "category": "Country", "unit": "kg", "pricing": "manual", "basis": "live", "multiplier": 1.0, "offset": 0,
@@ -185,6 +189,14 @@ def get_raw_products() -> list:
         if "1761284827145-06ea2fe270bd" in (x.get("image") or ""):
             x["image"] = IMG("1759211321222-09f769570583")
             store.set_json("products", p)
+    # v1.3.1: real raw-chicken photos for legs / wings / liver where no owner photo exists yet
+    changed = False
+    for x in p:
+        if x["id"] in COMMONS and not x.get("image"):
+            x["image"], x["credit"] = COMMONS[x["id"]]
+            changed = True
+    if changed:
+        store.set_json("products", p)
     # v1.2.1: stock photos that did not match the product (legs/wings/liver) -> photo placeholder
     bad = ("1682991136736-a2b44623eeba", "1527477396000-e27163b481c2", "1600180786608-28d06391d25c")
     if any(any(b in (x.get("image") or "") for b in bad) for x in p):

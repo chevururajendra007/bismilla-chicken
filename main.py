@@ -244,7 +244,7 @@ def admin_rate_hist(admin: dict = Depends(auth.require_admin)):
 @app.put("/api/admin/products")
 def admin_products(products: list[dict], admin: dict = Depends(auth.require_admin)):
     allowed = {"id", "name", "name_te", "category", "unit", "pricing", "basis", "multiplier", "offset", "manual_price",
-               "emoji", "available", "desc", "image", "badge"}
+               "emoji", "available", "desc", "image", "badge", "credit"}
     clean = []
     for p in products:
         if not p.get("id") or not p.get("name"):
@@ -288,6 +288,7 @@ def admin_product_image(pid: str, r: ImageReq, admin: dict = Depends(auth.requir
     for p in products:
         if p["id"] == pid:
             p["image"] = f"/api/img/{pid}?v={ver}"
+            p.pop("credit", None)
     catalog.save_products(products)
     store.audit(admin["id"], "product.photo", {"id": pid, "bytes": len(raw)})
     return catalog.get_menu()

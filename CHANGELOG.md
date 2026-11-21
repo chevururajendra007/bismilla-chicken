@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.3.1 – 2026-11-21
+- Real raw-chicken photos for Leg Pieces, Wings and Liver & Gizzard (Wikimedia Commons, credited on the card as the licences require). Owner uploads replace them.
+
 ## v1.3.0 – 2026-11-21
 - **Smart delivery address**: town chips (Kota / Vidyanagar / other village), door no. with "No door number" option,
   street/colony/area search that moves the map automatically (Google Geocoding if key set, else OpenStreetMap, biased to
