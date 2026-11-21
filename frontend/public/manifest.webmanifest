@@ -16,7 +16,6 @@
     { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "My orders", "url": "/orders" },
-    { "name": "Admin", "url": "/admin" }
+    { "name": "My orders", "url": "/orders" }
   ]
 }

@@ -84,7 +84,7 @@ export default function App() {
     <div className="app">
       <header className="top">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
-          <span className="logo"><img src="https://images.unsplash.com/photo-1774569445732-accb057692c5?auto=format&fit=crop&w=160&h=160&crop=faces&q=70" alt="" onError={(e) => { e.currentTarget.src = '/icons/icon-192.png' }} /><i>BC</i></span> <span>Bismilla <b>Chicken</b></span>
+          <span className="logo"><img src="https://images.unsplash.com/photo-1759211321056-723146eb120e?auto=format&fit=crop&w=160&h=160&crop=faces&q=70" alt="" onError={(e) => { e.currentTarget.src = '/icons/icon-192.png' }} /><i>BC</i></span> <span>Bismilla <b>Chicken</b></span>
         </a>
         <nav>
           {installEvt && <button className="btn ghost sm" onClick={async () => { installEvt.prompt(); await installEvt.userChoice; setInstallEvt(null) }}>⬇ Install</button>}
@@ -117,9 +117,9 @@ export default function App() {
       <footer className="foot">
         <p>Bismilla Chicken · Opp. Extra Mart, Kota & Vidyanagar · 📞 <a href={`tel:${cfg?.shop_phone || '7904711708'}`}>{cfg?.shop_phone || '7904711708'}</a></p>
         <p className="muted small">Photos: owner & Unsplash</p>
-        <p className="muted">v{cfg?.version || '1.1.0'} · {user
-          ? <>{user.phone || user.email} ({user.role}) · <button className="link" onClick={async () => { await clerkSignOut(); session.logout(); navigate('/') }}>Logout</button></>
-          : <button className="link" onClick={() => navigate('/admin')}>Shop login</button>}</p>
+        <p className="muted">{user
+          ? <>{isStaff ? `${user.phone || user.email} (${user.role})` : `+91 ${user.phone}`} · <button className="link" onClick={async () => { await clerkSignOut(); session.logout(); navigate('/') }}>Logout</button></>
+          : <>© Bismilla Chicken</>}</p>
       </footer>
 
       {login && (

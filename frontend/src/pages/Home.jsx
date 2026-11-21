@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { cart, navigate, qtyLabel, rupee } from '../api'
 
 const STEP = { kg: 0.5, tray: 1, piece: 1 }
-const HERO_IMG = 'https://images.unsplash.com/photo-1706456134122-a0702ce76de7?auto=format&fit=crop&w=900&h=900&q=75'
+const HERO_IMG = 'https://images.unsplash.com/photo-1774569445732-accb057692c5?auto=format&fit=crop&w=900&h=1125&q=80'
 
 function Photo({ src, emoji, alt }) {
   const [bad, setBad] = useState(false)

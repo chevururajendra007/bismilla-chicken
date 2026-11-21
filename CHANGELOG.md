@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.2 – 2026-11-21
+- New hero: proud red-comb rooster in a tall glossy gold-framed card (no circle crop).
+- Admin is invisible to customers: no "Shop login" link, no Admin app shortcut, /admin hidden from search engines. Owner opens /admin directly (bookmark it).
+
 ## v1.4.1 – 2026-11-21
 - Address search only returns places within 30 km of the shops (no more Kota, Rajasthan). Vidyanagar placeholder pin moved to the NBKR area.
 
