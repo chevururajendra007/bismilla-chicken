@@ -1,7 +1,10 @@
 """FastAPI server – all routes live under /api. On Vercel it runs as one Python function (api/index.py)."""
+import base64
+import re
+import time
 from datetime import datetime, timedelta
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -67,8 +70,14 @@ class PaidReq(BaseModel):
 
 
 class RateReq(BaseModel):
-    paper_rate: float
+    live_rate: float | None = None
+    broiler_rate: float | None = None
+    paper_rate: float | None = None  # v1.1 clients: treated as live rate
     notify: bool = True
+
+
+class ImageReq(BaseModel):
+    data_url: str
 
 
 class BroadcastReq(BaseModel):
@@ -201,17 +210,18 @@ def admin_paid(code: str, r: PaidReq, staff: dict = Depends(auth.require_staff))
 
 @app.post("/api/admin/rate")
 def admin_rate(r: RateReq, admin: dict = Depends(auth.require_admin)):
-    if not (30 <= r.paper_rate <= 1000):
-        raise HTTPException(400, "Paper rate looks wrong (₹30–₹1000).")
-    old = catalog.get_settings()["paper_rate"]
-    catalog.set_paper_rate(r.paper_rate, admin["id"])
-    store.audit(admin["id"], "rate.update", {"from": old, "to": r.paper_rate})
+    cur = catalog.get_settings()["rates"]
+    live = r.live_rate if r.live_rate is not None else (r.paper_rate if r.paper_rate is not None else cur["live"])
+    broiler = r.broiler_rate if r.broiler_rate is not None else cur["broiler"]
+    for name, v in (("Live", live), ("Broiler", broiler)):
+        if not (30 <= float(v) <= 1500):
+            raise HTTPException(400, f"{name} rate looks wrong (₹30–₹1500).")
+    catalog.set_rates(live, broiler, admin["id"])
+    store.audit(admin["id"], "rate.update", {"from": cur, "to": {"live": live, "broiler": broiler}})
     sent = 0
     if r.notify:
-        m = catalog.get_menu()
-        sk = next((p for p in m["products"] if p["id"] == "skinless-curry"), None)
-        body = f"Paper rate ₹{r.paper_rate:g}/kg" + (f" · Skinless ₹{sk['price']}/kg" if sk else "")
-        sent = push.broadcast(f"🐔 Today's chicken rate – {config.SHOP_NAME}", body, "/", customers_only=True)
+        body = f"Live ₹{live:g}/kg · Broiler ₹{broiler:g}/kg – order fresh now"
+        sent = push.broadcast(f"🐔 Today's paper rate – {config.SHOP_NAME}", body, "/", customers_only=True)
     return {**catalog.get_menu(), "notified": sent}
 
 
@@ -222,14 +232,15 @@ def admin_rate_hist(admin: dict = Depends(auth.require_admin)):
 
 @app.put("/api/admin/products")
 def admin_products(products: list[dict], admin: dict = Depends(auth.require_admin)):
-    allowed = {"id", "name", "name_te", "category", "unit", "pricing", "multiplier", "offset", "manual_price",
-               "emoji", "available", "desc"}
+    allowed = {"id", "name", "name_te", "category", "unit", "pricing", "basis", "multiplier", "offset", "manual_price",
+               "emoji", "available", "desc", "image", "badge"}
     clean = []
     for p in products:
         if not p.get("id") or not p.get("name"):
             raise HTTPException(400, "Each product needs id and name.")
         q = {k: v for k, v in p.items() if k in allowed}
         q["pricing"] = "manual" if q.get("pricing") == "manual" else "paper"
+        q["basis"] = "live" if q.get("basis") == "live" else "broiler"
         q["unit"] = q.get("unit") or "kg"
         for k in ("multiplier", "offset", "manual_price"):
             q[k] = float(q.get(k) or 0)
@@ -247,6 +258,37 @@ def billing_status(s: dict) -> dict:
         out["days_left"] = days
         out["state"] = "active" if days > 5 else "due_soon" if days >= 0 else "overdue"
     return out
+
+
+@app.post("/api/admin/products/{pid}/image")
+def admin_product_image(pid: str, r: ImageReq, admin: dict = Depends(auth.require_admin)):
+    """Owner uploads his own photo (resized on the phone to ~800px JPEG). Stored in the database."""
+    m = re.fullmatch(r"data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)", r.data_url.strip())
+    if not m:
+        raise HTTPException(400, "Please choose a JPG, PNG or WEBP photo.")
+    raw = base64.b64decode(m.group(2))
+    if len(raw) > 600_000:
+        raise HTTPException(400, "Photo too large – please use a smaller photo.")
+    products = catalog.get_raw_products()
+    if pid not in {p["id"] for p in products}:
+        raise HTTPException(404, "Product not found.")
+    store.set_json(f"img:{pid}", {"ct": m.group(1), "b64": m.group(2)})
+    ver = int(time.time())
+    for p in products:
+        if p["id"] == pid:
+            p["image"] = f"/api/img/{pid}?v={ver}"
+    catalog.save_products(products)
+    store.audit(admin["id"], "product.photo", {"id": pid, "bytes": len(raw)})
+    return catalog.get_menu()
+
+
+@app.get("/api/img/{pid}")
+def product_image(pid: str):
+    rec = store.get_json(f"img:{pid}")
+    if not rec:
+        raise HTTPException(404, "No photo")
+    return Response(content=base64.b64decode(rec["b64"]), media_type=rec["ct"],
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @app.get("/api/admin/settings")

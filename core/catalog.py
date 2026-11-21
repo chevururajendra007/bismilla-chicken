@@ -1,15 +1,16 @@
 """Shop data: settings, branches, products, and the daily "paper rate" pricing engine.
 
-Pricing model
--------------
-Every morning the newspaper publishes the broiler "paper rate" (₹/kg, live bird).
-The admin enters it once; each product is priced from it automatically:
+Pricing model (v1.2)
+--------------------
+The Nellore edition of the Telugu papers prints TWO broiler rates every morning:
+  * LIVE rate     – per kg live bird  (బ్రాయిలర్ లైవ్)
+  * BROILER rate  – per kg dressed / skinless chicken (స్కిన్‌లెస్)
+The admin types both once a day; every product is priced from the rate it is linked to:
 
-    price/kg = round(paper_rate * multiplier + offset)
+    price/kg = round(rate[basis] * multiplier + offset)      basis = "live" | "broiler"
 
-A product can be switched to MANUAL, in which case `manual_price` is used and
-the paper rate is ignored for it (e.g. Natu Kodi / country chicken, eggs).
-The admin can also switch the whole shop to manual mode (rate_mode = "manual").
+A product can be MANUAL (country chicken, eggs, liver) – then `manual_price` is used.
+The whole shop can also be switched to manual mode (rate_mode = "manual").
 """
 import time
 from datetime import datetime, timedelta, timezone
@@ -19,8 +20,12 @@ from . import store
 IST = timezone(timedelta(hours=5, minutes=30))
 
 DEFAULT_SETTINGS = {
-    "paper_rate": 120,               # ₹/kg live broiler, from today's newspaper
+    # Nellore paper rates (₹/kg). Defaults = latest public Nellore market rates found (Jul 2026):
+    # live ₹220, skinless ₹280. The owner overwrites them every morning from the paper.
+    "rates": {"live": 220, "broiler": 280},
+    "paper_rate": 220,               # kept for v1.0/1.1 compatibility (= live rate)
     "paper_rate_date": None,          # YYYY-MM-DD (IST) when last updated
+    "catalog_version": 2,
     "rate_mode": "paper",            # "paper" = auto from paper rate, "manual" = per-product prices only
     "delivery": {
         "free_radius_km": 3.0,        # free door delivery up to this distance
@@ -71,38 +76,53 @@ DEFAULT_BRANCHES = [
     },
 ]
 
-# multiplier/offset are starting points; the owner tunes them in Admin -> Rates.
+# Free photos (Unsplash License) as placeholders – the owner can replace each with his own shop photo
+# from Admin -> Rates -> 📷. multiplier/offset are starting points the owner tunes.
+def IMG(pid: str) -> str:
+    return f"https://images.unsplash.com/photo-{pid}?auto=format&fit=crop&w=640&q=70"
+
+
 DEFAULT_PRODUCTS = [
-    {"id": "live-broiler", "name": "Live Broiler Bird (per kg live weight)", "name_te": "బ్రాయిలర్ కోడి (లైవ్)",
-     "category": "Live", "unit": "kg", "pricing": "paper", "multiplier": 1.0, "offset": 0, "manual_price": 120,
-     "emoji": "🐔", "available": True, "desc": "Choose your bird; weighed live and cut fresh."},
-    {"id": "skin-curry", "name": "Chicken With Skin – Curry Cut", "name_te": "చికెన్ స్కిన్‌తో – కర్రీ కట్",
-     "category": "Broiler", "unit": "kg", "pricing": "paper", "multiplier": 1.5, "offset": 0, "manual_price": 180,
-     "emoji": "🍗", "available": True, "desc": "Fresh curry-cut pieces with skin."},
+    {"id": "live-broiler", "name": "Live Broiler Bird", "name_te": "బ్రాయిలర్ కోడి (లైవ్)",
+     "category": "Live", "unit": "kg", "pricing": "paper", "basis": "live", "multiplier": 1.0, "offset": 0,
+     "manual_price": 220, "image": IMG("1721778468488-504bbf626b9f"), "emoji": "🐔", "available": True,
+     "desc": "Pick your bird – weighed live, cut fresh in front of you.", "badge": "Live rate"},
     {"id": "skinless-curry", "name": "Skinless Chicken – Curry Cut", "name_te": "స్కిన్‌లెస్ చికెన్ – కర్రీ కట్",
-     "category": "Broiler", "unit": "kg", "pricing": "paper", "multiplier": 1.75, "offset": 0, "manual_price": 210,
-     "emoji": "🥩", "available": True, "desc": "Tender skinless curry cut. Most ordered."},
+     "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 1.0, "offset": 0,
+     "manual_price": 280, "image": IMG("1587593810167-a84920ea0781"), "emoji": "🥩", "available": True,
+     "desc": "Tender skinless curry cut. Most ordered.", "badge": "Bestseller"},
+    {"id": "skin-curry", "name": "Chicken With Skin – Curry Cut", "name_te": "చికెన్ స్కిన్‌తో – కర్రీ కట్",
+     "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 1.0, "offset": -20,
+     "manual_price": 260, "image": IMG("1759493321741-883fbf9f433c"), "emoji": "🍗", "available": True,
+     "desc": "Juicy curry-cut pieces with skin."},
     {"id": "boneless", "name": "Boneless Chicken", "name_te": "బోన్‌లెస్ చికెన్",
-     "category": "Broiler", "unit": "kg", "pricing": "paper", "multiplier": 2.6, "offset": 0, "manual_price": 320,
-     "emoji": "🍖", "available": True, "desc": "Breast & thigh boneless cubes."},
+     "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 1.5, "offset": 0,
+     "manual_price": 420, "image": IMG("1633096013004-e2cb4023b560"), "emoji": "🍖", "available": True,
+     "desc": "Breast & thigh boneless cubes – biryani, 65, kebab."},
     {"id": "legs", "name": "Chicken Leg Pieces", "name_te": "లెగ్ పీసెస్",
-     "category": "Broiler", "unit": "kg", "pricing": "paper", "multiplier": 2.0, "offset": 0, "manual_price": 240,
-     "emoji": "🍗", "available": True, "desc": "Drumsticks + thighs. Great for fry & tandoori."},
+     "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 1.15, "offset": 0,
+     "manual_price": 320, "image": IMG("1682991136736-a2b44623eeba"), "emoji": "🍗", "available": True,
+     "desc": "Drumsticks + thighs. Great for fry & tandoori."},
     {"id": "wings", "name": "Chicken Wings", "name_te": "చికెన్ వింగ్స్",
-     "category": "Broiler", "unit": "kg", "pricing": "paper", "multiplier": 1.6, "offset": 0, "manual_price": 190,
-     "emoji": "🍗", "available": True, "desc": "Fresh wings."},
+     "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 0.95, "offset": 0,
+     "manual_price": 266, "image": IMG("1527477396000-e27163b481c2"), "emoji": "🍗", "available": True,
+     "desc": "Fresh wings for fry & lollipop."},
     {"id": "liver-gizzard", "name": "Liver & Gizzard", "name_te": "లివర్ & గిజర్డ్",
-     "category": "Broiler", "unit": "kg", "pricing": "manual", "multiplier": 1.0, "offset": 0, "manual_price": 160,
-     "emoji": "🫀", "available": True, "desc": "Cleaned liver and gizzard."},
-    {"id": "natu-kodi", "name": "Natu Kodi (Country Chicken) – Live", "name_te": "నాటు కోడి",
-     "category": "Country", "unit": "kg", "pricing": "manual", "multiplier": 1.0, "offset": 0, "manual_price": 480,
-     "emoji": "🐓", "available": True, "desc": "Desi country chicken, live weight."},
-    {"id": "sonali", "name": "Sonali / Kadaknath Cross – Live", "name_te": "సోనాలి కోడి",
-     "category": "Country", "unit": "kg", "pricing": "manual", "multiplier": 1.0, "offset": 0, "manual_price": 320,
-     "emoji": "🐓", "available": True, "desc": "Semi-desi bird, live weight."},
+     "category": "Broiler", "unit": "kg", "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0,
+     "manual_price": 190, "image": IMG("1600180786608-28d06391d25c"), "emoji": "🫀", "available": True,
+     "desc": "Cleaned liver and gizzard."},
+    {"id": "natu-kodi", "name": "Natu Kodi (Country Chicken)", "name_te": "నాటు కోడి",
+     "category": "Country", "unit": "kg", "pricing": "manual", "basis": "live", "multiplier": 1.0, "offset": 0,
+     "manual_price": 450, "image": IMG("1761284827145-06ea2fe270bd"), "emoji": "🐓", "available": True,
+     "desc": "Desi country chicken, live weight.", "badge": "Desi"},
+    {"id": "sonali", "name": "Sonali / Pandem Cross", "name_te": "సోనాలి కోడి",
+     "category": "Country", "unit": "kg", "pricing": "manual", "basis": "live", "multiplier": 1.0, "offset": 0,
+     "manual_price": 320, "image": IMG("1763517174823-61148e142c8e"), "emoji": "🐓", "available": True,
+     "desc": "Semi-desi bird, live weight."},
     {"id": "eggs", "name": "Eggs – Tray of 30", "name_te": "గుడ్లు – 30 ట్రే",
-     "category": "Eggs", "unit": "tray", "pricing": "manual", "multiplier": 1.0, "offset": 0, "manual_price": 190,
-     "emoji": "🥚", "available": True, "desc": "Farm fresh eggs."},
+     "category": "Eggs", "unit": "tray", "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0,
+     "manual_price": 190, "image": IMG("1635843125569-b7fb33d26fab"), "emoji": "🥚", "available": True,
+     "desc": "Farm fresh eggs."},
 ]
 
 
@@ -124,6 +144,8 @@ def get_settings() -> dict:
     merged = {**DEFAULT_SETTINGS, **s}
     merged["delivery"] = {**DEFAULT_SETTINGS["delivery"], **(s.get("delivery") or {})}
     merged["subscription"] = {**DEFAULT_SETTINGS["subscription"], **(s.get("subscription") or {})}
+    if not s.get("rates"):  # v1.0/1.1 had one placeholder paper_rate -> start from the Nellore defaults
+        merged["rates"] = dict(DEFAULT_SETTINGS["rates"])
     if "accept_phonepe" in s and "accept_prepaid" not in s:  # v1.0 setting name
         merged["accept_prepaid"] = merged["accept_upi_delivery"] = s["accept_phonepe"]
     return merged
@@ -147,9 +169,16 @@ def save_branches(b: list):
 
 def get_raw_products() -> list:
     p = store.get_json("products")
-    if p is None:
-        p = DEFAULT_PRODUCTS
+    if p is None or not all("basis" in x for x in p):
+        # first run, or catalog from v1.0/1.1 -> move to the two-rate catalog with photos
+        old = {x["id"]: x for x in (p or [])}
+        p = [{**d, "available": old.get(d["id"], {}).get("available", True)} for d in DEFAULT_PRODUCTS]
         store.set_json("products", p)
+        s = get_settings()
+        if not (store.get_json("settings") or {}).get("rates"):
+            s["rates"] = dict(DEFAULT_SETTINGS["rates"])
+            s["paper_rate"] = s["rates"]["live"]
+            save_settings(s)
     return p
 
 
@@ -160,8 +189,9 @@ def save_products(p: list):
 def unit_price(product: dict, settings: dict) -> int:
     if settings.get("rate_mode") == "manual" or product.get("pricing") == "manual":
         return int(round(float(product.get("manual_price") or 0)))
-    paper = float(settings.get("paper_rate") or 0)
-    return int(round(paper * float(product.get("multiplier") or 1) + float(product.get("offset") or 0)))
+    rates = settings.get("rates") or {}
+    base = float(rates.get(product.get("basis") or "broiler") or settings.get("paper_rate") or 0)
+    return int(round(base * float(product.get("multiplier") or 1) + float(product.get("offset") or 0)))
 
 
 def get_menu() -> dict:
@@ -170,7 +200,8 @@ def get_menu() -> dict:
     for p in get_raw_products():
         items.append({**p, "price": unit_price(p, s)})
     return {
-        "paper_rate": s["paper_rate"],
+        "rates": s["rates"],
+        "paper_rate": s["rates"]["live"],
         "paper_rate_date": s["paper_rate_date"],
         "rate_is_today": s["paper_rate_date"] == today_ist(),
         "rate_mode": s["rate_mode"],
@@ -180,18 +211,19 @@ def get_menu() -> dict:
     }
 
 
-def set_paper_rate(rate: float, by: str):
+def set_rates(live: float, broiler: float, by: str):
     s = get_settings()
-    s["paper_rate"] = round(float(rate), 2)
+    s["rates"] = {"live": round(float(live), 2), "broiler": round(float(broiler), 2)}
+    s["paper_rate"] = s["rates"]["live"]
     s["paper_rate_date"] = today_ist()
     save_settings(s)
-    store.zadd("ratehist", now_ts(), f"{today_ist()}|{s['paper_rate']}|{by}|{int(now_ts())}")
+    store.zadd("ratehist", now_ts(), f"{today_ist()}|{s['rates']['live']}|{by}|{int(now_ts())}|{s['rates']['broiler']}")
     return s
 
 
 def rate_history(limit=30):
     out = []
     for m in store.zrevrange("ratehist", 0, limit - 1):
-        d, r, by, ts = (m.split("|") + ["", "", "", ""])[:4]
-        out.append({"date": d, "rate": float(r or 0), "by": by, "ts": int(ts or 0)})
+        d, r, by, ts, b = (m.split("|") + ["", "", "", "", ""])[:5]
+        out.append({"date": d, "live": float(r or 0), "broiler": float(b) if b else None, "by": by, "ts": int(ts or 0)})
     return out

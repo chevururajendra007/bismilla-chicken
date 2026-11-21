@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.0 – 2026-11-21
+- **Two Nellore paper rates**: Live (లైవ్) and Broiler/skinless (స్కిన్‌లెస్). Each product is linked to one rate
+  (× multiplier + offset) or a manual price. Defaults: Live ₹220, Broiler ₹280 (latest public Nellore rates found);
+  the owner updates both every morning and can push them to customers.
+- **Real product photos** (free Unsplash photos as placeholders) + **owner photo upload** from the phone camera in
+  Admin → Rates (resized on the phone, stored in Postgres, served from /api/img/<id>).
+- **New "Ruby & Saffron" glossy design**: gradient background with gold/saffron glows, glass rate cards, animated
+  offer ribbon, how-it-works steps, trust badges, photo product cards, owner spotlight, Baloo Tammudu 2 (Telugu) font.
+- Automatic upgrade of v1.0/1.1 catalogs to the two-rate catalog (keeps in-stock flags).
+
 ## v1.1.0 – 2026-11-21
 - **Customers need no account**: browse freely; at checkout enter name + mobile (+ optional email) and confirm the
   mobile once with OTP. The phone stays verified for 180 days.

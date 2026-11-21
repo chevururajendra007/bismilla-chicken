@@ -62,6 +62,7 @@ def _price_cart(items: list) -> tuple[list, float, float]:
         price = catalog.unit_price(p, s)
         amount = round(price * qty)
         lines.append({"product_id": p["id"], "name": p["name"], "name_te": p.get("name_te", ""), "unit": p["unit"],
+                      "image": p.get("image"),
                       "qty": qty, "price": price, "amount": amount, "note": (it.get("note") or "")[:120]})
         subtotal += amount
         if p["unit"] == "kg":
@@ -130,7 +131,7 @@ def create(user: dict, body: dict) -> dict:
         "notes": (body.get("notes") or "").strip()[:200],
         "status": "placed", "history": [{"status": "placed", "ts": now}],
         "rider": None, "created": now, "updated": now, "promised_at": now + (eta or 20) * 60,
-        "paper_rate": s["paper_rate"],
+        "paper_rate": s["rates"]["live"], "rates": s["rates"],
     }
     _save(order, "placed", user["phone"], {"total": total, "payment_method": pay})
     store.zadd("orders", now, code)

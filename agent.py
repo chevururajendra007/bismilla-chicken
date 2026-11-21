@@ -21,7 +21,8 @@ def get_today_rates() -> dict:
     """Today's paper rate and per-kg price of every item."""
     m = catalog.get_menu()
     return {
-        "paper_rate_per_kg": m["paper_rate"], "rate_date": m["paper_rate_date"], "shop_open": m["shop_open"],
+        "live_rate_per_kg": m["rates"]["live"], "broiler_rate_per_kg": m["rates"]["broiler"],
+        "rate_date": m["paper_rate_date"], "shop_open": m["shop_open"],
         "items": [{"name": p["name"], "telugu": p.get("name_te"), "price": p["price"], "unit": p["unit"],
                    "available": p["available"]} for p in m["products"]],
     }
@@ -197,7 +198,8 @@ def fallback(message: str, phone: str | None = None) -> dict:
         used.append("get_today_rates")
         r = get_today_rates()
         top = ", ".join(f"{i['name'].split('(')[0].strip()} ₹{i['price']}/{i['unit']}" for i in r["items"][:5] if i["available"])
-        reply = f"Today's paper rate ₹{r['paper_rate_per_kg']}/kg ({r['rate_date']}). {top}. Add items to cart to order!"
+        reply = (f"Today's paper rate ({r['rate_date']}): Live ₹{r['live_rate_per_kg']:g}/kg · Broiler ₹{r['broiler_rate_per_kg']:g}/kg. "
+                 f"{top}. Add items to cart to order!")
     return {"reply": reply, "tools": used, "engine": "rules (local LLM offline)"}
 
 

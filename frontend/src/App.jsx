@@ -104,7 +104,7 @@ export default function App() {
         </div>
       )}
 
-      <main>{page}</main>
+      <main className={route === '/' ? 'home' : 'sheet'}>{page}</main>
 
       {count > 0 && route !== '/checkout' && route !== '/admin' && (
         <button className="cart-bar" onClick={() => navigate('/checkout')}>
@@ -116,6 +116,7 @@ export default function App() {
 
       <footer className="foot">
         <p>Bismilla Chicken · Opp. Extra Mart, Kota & Vidyanagar · 📞 <a href={`tel:${cfg?.shop_phone || '7904711708'}`}>{cfg?.shop_phone || '7904711708'}</a></p>
+        <p className="muted small">Photos: owner & Unsplash</p>
         <p className="muted">v{cfg?.version || '1.1.0'} · {user
           ? <>{user.phone || user.email} ({user.role}) · <button className="link" onClick={async () => { await clerkSignOut(); session.logout(); navigate('/') }}>Logout</button></>
           : <button className="link" onClick={() => navigate('/admin')}>Shop login</button>}</p>

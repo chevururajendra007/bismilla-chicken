@@ -82,7 +82,7 @@ export default function Checkout({ cfg, menu, items, user }) {
       <div className="panel">
         {lines.map(({ p, qty }) => (
           <div className="cline" key={p.id}>
-            <span>{p.emoji} {p.name}<br /><small className="muted">{rupee(p.price)}/{p.unit}</small></span>
+            <span className="cl-name">{p.image ? <img className="thumb" src={p.image} alt="" /> : p.emoji} <span>{p.name}<br /><small className="muted">{rupee(p.price)}/{p.unit}</small></span></span>
             <div className="stepper">
               <button onClick={() => cart.set(p.id, qty - (p.unit === 'kg' ? 0.5 : 1))}>−</button>
               <span>{qtyLabel(qty, p.unit)}</span>
@@ -166,7 +166,7 @@ export default function Checkout({ cfg, menu, items, user }) {
         <p><span>Items ({weight} kg)</span><span>{rupee(subtotal)}</span></p>
         {mode === 'delivery' && <p><span>Delivery</span><span>{fee ? rupee(fee) : 'FREE'}</span></p>}
         <p className="grand"><span>Total</span><span>{rupee(total)}</span></p>
-        <p className="muted small">Today's paper rate ₹{menu.paper_rate}/kg. Final amount is by actual weight.</p>
+        <p className="muted small">Today's paper rate: Live ₹{menu.rates?.live}/kg · Broiler ₹{menu.rates?.broiler}/kg. Final amount is by actual weight.</p>
       </div>
 
       {err && <p className="err">{err}</p>}

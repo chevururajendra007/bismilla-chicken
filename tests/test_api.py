@@ -60,11 +60,25 @@ def test_delivery_rules():
     assert not q(80.1200, 5)["deliverable"]
 
 
-def test_paper_rate_prices():
-    m = c.post("/api/admin/rate", json={"paper_rate": 140, "notify": False}, headers=ADMIN).json()
+def test_two_paper_rates_prices():
+    m = c.post("/api/admin/rate", json={"live_rate": 210, "broiler_rate": 270, "notify": False}, headers=ADMIN).json()
     p = {x["id"]: x["price"] for x in m["products"]}
-    assert p["live-broiler"] == 140 and p["skinless-curry"] == round(140 * 1.75)
-    assert p["natu-kodi"] == 480
+    assert m["rates"] == {"live": 210, "broiler": 270}
+    assert p["live-broiler"] == 210 and p["skinless-curry"] == 270 and p["skin-curry"] == 250
+    assert p["boneless"] == round(270 * 1.5)
+    assert p["natu-kodi"] == 450  # manual price untouched
+    assert c.post("/api/admin/rate", json={"live_rate": 5}, headers=ADMIN).status_code == 400
+
+
+def test_products_have_photos_and_owner_upload():
+    m = c.get("/api/menu").json()
+    assert all(x["image"] for x in m["products"])
+    png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    m = c.post("/api/admin/products/eggs/image", json={"data_url": png}, headers=ADMIN).json()
+    url = next(x["image"] for x in m["products"] if x["id"] == "eggs")
+    assert url.startswith("/api/img/eggs")
+    r = c.get(url)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
 
 
 def test_prepaid_blocks_cutting_until_paid():

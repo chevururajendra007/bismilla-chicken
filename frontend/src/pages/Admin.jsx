@@ -347,25 +347,43 @@ function beep() {
   } catch { /* no audio */ }
 }
 
+// Resize a phone photo to <= 800px JPEG before upload (keeps the database small and pages fast on 3G).
+function resizePhoto(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const k = Math.min(1, 800 / Math.max(img.width, img.height))
+      const c = document.createElement('canvas')
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+      resolve(c.toDataURL('image/jpeg', 0.8))
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+}
+
 function RatesTab({ loadMenu }) {
   const [menu, setMenu] = useState(null)
-  const [rate, setRate] = useState('')
+  const [live, setLive] = useState('')
+  const [broiler, setBroiler] = useState('')
   const [notify, setNotify] = useState(true)
   const [products, setProducts] = useState([])
   const [hist, setHist] = useState([])
   const [msg, setMsg] = useState('')
   const [mode, setMode] = useState('paper')
+  const [uploading, setUploading] = useState('')
 
   const load = () => Promise.all([api('/menu'), api('/admin/rate/history'), api('/admin/settings')]).then(([m, h, s]) => {
-    setMenu(m); setRate(m.paper_rate); setProducts(m.products); setHist(h); setMode(s.settings.rate_mode)
+    setMenu(m); setLive(m.rates.live); setBroiler(m.rates.broiler); setProducts(m.products); setHist(h); setMode(s.settings.rate_mode)
   })
   useEffect(() => { load() }, [])
 
   async function saveRate(e) {
     e.preventDefault(); setMsg('')
     try {
-      const r = await api('/admin/rate', { method: 'POST', body: { paper_rate: Number(rate), notify } })
-      setMsg(`✅ Rate updated to ₹${rate}/kg${notify ? ` · notified ${r.notified} customers` : ''}`); load(); loadMenu()
+      const r = await api('/admin/rate', { method: 'POST', body: { live_rate: Number(live), broiler_rate: Number(broiler), notify } })
+      setMsg(`✅ Rates updated – Live ₹${live} · Broiler ₹${broiler}${notify ? ` · notified ${r.notified} customers` : ''}`); load(); loadMenu()
     } catch (x) { setMsg('❌ ' + x.message) }
   }
   async function saveMode(m) { setMode(m); await api('/admin/settings', { method: 'PUT', body: { rate_mode: m } }); load(); loadMenu() }
@@ -373,19 +391,34 @@ function RatesTab({ loadMenu }) {
     try { await api('/admin/products', { method: 'PUT', body: products.map(({ price, ...p }) => p) }); setMsg('✅ Products saved'); load(); loadMenu() }
     catch (x) { setMsg('❌ ' + x.message) }
   }
+  async function upload(pid, file) {
+    if (!file) return
+    setUploading(pid)
+    try {
+      const data_url = await resizePhoto(file)
+      await api(`/admin/products/${pid}/image`, { method: 'POST', body: { data_url } })
+      setMsg('✅ Photo updated'); await load(); loadMenu()
+    } catch (x) { setMsg('❌ ' + x.message) } finally { setUploading('') }
+  }
   const upd = (i, k, v) => setProducts((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)))
-  const preview = (p) => (mode === 'manual' || p.pricing === 'manual') ? Number(p.manual_price) : Math.round(Number(rate) * Number(p.multiplier) + Number(p.offset))
+  const preview = (p) => {
+    if (mode === 'manual' || p.pricing === 'manual') return Number(p.manual_price)
+    const base = Number(p.basis === 'live' ? live : broiler)
+    return Math.round(base * Number(p.multiplier) + Number(p.offset))
+  }
 
   if (!menu) return <div className="loading">Loading…</div>
   return (
     <>
       <form className="panel rate-form" onSubmit={saveRate}>
-        <h3>Today's paper rate (₹/kg, live broiler)</h3>
-        <div className="row">
-          <input type="number" step="0.5" value={rate} onChange={(e) => setRate(e.target.value)} className="big-in" />
-          <button className="btn primary">Update rate</button>
+        <h3>📰 Today's paper rates (Nellore)</h3>
+        <p className="muted small">Type the two broiler rates printed in today's paper. All prices update instantly.</p>
+        <div className="rate-inputs">
+          <label className="rate-in live"><span>🐔 Live / లైవ్</span><div>₹<input type="number" step="1" value={live} onChange={(e) => setLive(e.target.value)} /></div><small>per kg live bird</small></label>
+          <label className="rate-in broiler"><span>🥩 Broiler / స్కిన్‌లెస్</span><div>₹<input type="number" step="1" value={broiler} onChange={(e) => setBroiler(e.target.value)} /></div><small>per kg dressed chicken</small></label>
         </div>
-        <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Send push notification to customers</label>
+        <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Send today's rate to customers' phones</label>
+        <button className="btn primary block big">Update today's rates</button>
         <p className="muted small">Last set: {menu.paper_rate_date} {menu.rate_is_today ? '(today)' : '⚠️ not updated today'}</p>
         {msg && <p>{msg}</p>}
       </form>
@@ -393,40 +426,53 @@ function RatesTab({ loadMenu }) {
       <div className="panel">
         <h3>Pricing mode</h3>
         <div className="seg">
-          <button className={mode === 'paper' ? 'on' : ''} onClick={() => saveMode('paper')}>📰 Auto from paper rate</button>
+          <button className={mode === 'paper' ? 'on' : ''} onClick={() => saveMode('paper')}>📰 Auto from paper rates</button>
           <button className={mode === 'manual' ? 'on' : ''} onClick={() => saveMode('manual')}>✍️ Manual prices for all</button>
         </div>
-        <p className="muted small">Auto: price = paper rate × multiplier + offset. Any product can still be set to Manual individually.</p>
+        <p className="muted small">Auto: price = linked rate × multiplier + offset. Example: With-skin = Broiler − ₹20. Any product can still be Manual.</p>
       </div>
 
       <div className="panel">
-        <h3>Products</h3>
+        <h3>Products & photos</h3>
         <div className="ptable">
           {products.map((p, i) => (
-            <div key={p.id} className="prow">
-              <div className="pname"><b>{p.emoji} {p.name}</b><span className="muted small">{p.id}</span></div>
-              <label className="check"><input type="checkbox" checked={p.available} onChange={(e) => upd(i, 'available', e.target.checked)} /> In stock</label>
-              <select value={p.pricing} onChange={(e) => upd(i, 'pricing', e.target.value)}>
-                <option value="paper">Paper rate</option><option value="manual">Manual</option>
-              </select>
-              {p.pricing === 'paper' && mode === 'paper' ? (
-                <>
-                  <label>× <input type="number" step="0.05" value={p.multiplier} onChange={(e) => upd(i, 'multiplier', e.target.value)} /></label>
-                  <label>+ ₹<input type="number" step="1" value={p.offset} onChange={(e) => upd(i, 'offset', e.target.value)} /></label>
-                </>
-              ) : (
-                <label>₹<input type="number" step="1" value={p.manual_price} onChange={(e) => upd(i, 'manual_price', e.target.value)} />/{p.unit}</label>
-              )}
-              <b className="pprice">= {rupee(preview(p))}/{p.unit}</b>
+            <div key={p.id} className="prow2">
+              <label className="pthumb" title="Change photo">
+                {p.image ? <img src={p.image} alt="" /> : <span>{p.emoji}</span>}
+                <em>{uploading === p.id ? '…' : '📷'}</em>
+                <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => upload(p.id, e.target.files?.[0])} />
+              </label>
+              <div className="pmain">
+                <b>{p.name}</b>
+                <div className="pcontrols">
+                  <label className="check"><input type="checkbox" checked={p.available} onChange={(e) => upd(i, 'available', e.target.checked)} /> In stock</label>
+                  <select value={p.pricing === 'manual' ? 'manual' : p.basis} onChange={(e) => {
+                    const v = e.target.value
+                    setProducts((ps) => ps.map((x, j) => (j === i ? { ...x, pricing: v === 'manual' ? 'manual' : 'paper', basis: v === 'manual' ? x.basis : v } : x)))
+                  }}>
+                    <option value="live">Live rate</option><option value="broiler">Broiler rate</option><option value="manual">Manual price</option>
+                  </select>
+                  {p.pricing !== 'manual' && mode === 'paper' ? (
+                    <>
+                      <label>× <input type="number" step="0.05" value={p.multiplier} onChange={(e) => upd(i, 'multiplier', e.target.value)} /></label>
+                      <label>+₹ <input type="number" step="1" value={p.offset} onChange={(e) => upd(i, 'offset', e.target.value)} /></label>
+                    </>
+                  ) : (
+                    <label>₹ <input type="number" step="1" value={p.manual_price} onChange={(e) => upd(i, 'manual_price', e.target.value)} /> /{p.unit}</label>
+                  )}
+                  <b className="pprice">= {rupee(preview(p))}/{p.unit}</b>
+                </div>
+              </div>
             </div>
           ))}
         </div>
+        <p className="muted small">Tap a photo to take or choose a picture of your own chicken – real shop photos sell best.</p>
         <button className="btn primary" onClick={saveProducts}>Save products</button>
       </div>
 
       <div className="panel">
         <h3>Rate history</h3>
-        {hist.length ? hist.map((h) => <p key={h.ts} className="cline2"><span>{h.date}</span><span>₹{h.rate}/kg</span></p>) : <p className="muted">No history yet.</p>}
+        {hist.length ? hist.map((h) => <p key={h.ts} className="cline2"><span>{h.date}</span><span>Live ₹{h.live}{h.broiler ? ` · Broiler ₹${h.broiler}` : ''}</span></p>) : <p className="muted">No history yet.</p>}
       </div>
     </>
   )
