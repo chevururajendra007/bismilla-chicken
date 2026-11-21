@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#5b0a17" />
     <meta name="description" content="Bismilla Chicken, Kota & Vidyanagar – fresh chicken at today's paper rate. Order online: free door delivery within 3 km, pickup, cash on delivery or PhonePe." />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" id="mf" href="/manifest.webmanifest" />
+    <script>
+      // The owner's dashboard installs as its own app ("BC Admin"); customers only ever get the shop app.
+      if (location.pathname.indexOf('/admin') === 0) {
+        document.getElementById('mf').href = '/manifest-admin.webmanifest'
+        document.title = 'Bismilla Admin'
+      }
+    </script>
     <link rel="icon" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

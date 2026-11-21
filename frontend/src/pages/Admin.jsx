@@ -36,6 +36,7 @@ export default function Admin({ user, cfg, loadMenu, pushState, turnOnPush }) {
           Contact {billing.provider}{billing.provider_phone ? ` (${billing.provider_phone})` : ''}.
         </div>
       )}
+      <InstallHint />
       <div className="tabs">
         {tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
       </div>
@@ -48,6 +49,18 @@ export default function Admin({ user, cfg, loadMenu, pushState, turnOnPush }) {
       {tab === 'notify' && <NotifyTab />}
       {tab === 'history' && <HistoryTab />}
       {tab === 'platform' && <PlatformTab />}
+    </div>
+  )
+}
+
+// Tells the owner how to keep the dashboard as its own app on his phone (only shown in the browser, not once installed).
+function InstallHint() {
+  const installed = window.matchMedia?.('(display-mode: standalone)').matches
+  const [hide, setHide] = useState(() => { try { return localStorage.getItem('bc_admin_hint') === '1' } catch { return false } })
+  if (installed || hide) return null
+  return (
+    <div className="banner">📲 Install <b>BC Admin</b> on this phone: Chrome menu ⋮ → <b>Add to Home screen</b> (or "Install app"). Customers never see this dashboard.
+      <button className="btn sm" onClick={() => { try { localStorage.setItem('bc_admin_hint', '1') } catch { /* */ } setHide(true) }}>OK</button>
     </div>
   )
 }

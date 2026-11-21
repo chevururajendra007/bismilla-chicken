@@ -2,6 +2,7 @@
   "name": "Bismilla Chicken – Kota",
   "short_name": "Bismilla",
   "description": "Fresh chicken at today's paper rate. Door delivery & pickup in Kota and Vidyanagar.",
+  "id": "/",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

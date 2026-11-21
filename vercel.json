@@ -19,7 +19,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/((?!assets/|icons/|sw.js|manifest.webmanifest|owner.jpg|robots.txt).*)",
+      "source": "/((?!assets/|icons/|sw.js|manifest.webmanifest|manifest-admin.webmanifest|owner.jpg|robots.txt).*)",
       "destination": "/index.html"
     }
   ],

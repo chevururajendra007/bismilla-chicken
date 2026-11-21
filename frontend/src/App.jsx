@@ -88,8 +88,8 @@ export default function App() {
         </a>
         <nav>
           {installEvt && <button className="btn ghost sm" onClick={async () => { installEvt.prompt(); await installEvt.userChoice; setInstallEvt(null) }}>⬇ Install</button>}
-          {isStaff && <button className={`btn sm ${route === '/admin' ? 'primary' : 'ghost'}`} onClick={() => navigate('/admin')}>Admin</button>}
-          {user?.phone && !isStaff && <button className="btn ghost sm" onClick={() => navigate('/orders')}>My orders</button>}
+          {route === '/admin' && <button className="btn sm ghost" onClick={() => window.open('/', '_blank')}>View shop ↗</button>}
+          {route !== '/admin' && user?.phone && !isStaff && <button className="btn ghost sm" onClick={() => navigate('/orders')}>My orders</button>}
         </nav>
       </header>
 
@@ -98,7 +98,7 @@ export default function App() {
           <button className="btn sm primary" onClick={() => updateReady.postMessage('SKIP_WAITING')}>Update now</button>
         </div>
       )}
-      {user && pushState === 'default' && cfg?.vapid_public_key && (
+      {user && route !== '/admin' && pushState === 'default' && cfg?.vapid_public_key && (
         <div className="banner">🔔 Get order updates & today's rate on your phone.
           <button className="btn sm primary" onClick={turnOnPush}>Turn on</button>
         </div>
@@ -117,8 +117,8 @@ export default function App() {
       <footer className="foot">
         <p>Bismilla Chicken · Opp. Extra Mart, Kota & Vidyanagar · 📞 <a href={`tel:${cfg?.shop_phone || '7904711708'}`}>{cfg?.shop_phone || '7904711708'}</a></p>
         <p className="muted small">Photos: owner & Unsplash</p>
-        <p className="muted">{user
-          ? <>{isStaff ? `${user.phone || user.email} (${user.role})` : `+91 ${user.phone}`} · <button className="link" onClick={async () => { await clerkSignOut(); session.logout(); navigate('/') }}>Logout</button></>
+        <p className="muted">{user && !isStaff
+          ? <>+91 {user.phone} · <button className="link" onClick={() => { session.logout(); navigate('/') }}>Logout</button></>
           : <>© Bismilla Chicken</>}</p>
       </footer>
 

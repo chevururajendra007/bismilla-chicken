@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.0 – 2026-11-21
+- **Separate "BC Admin" app**: /admin installs as its own home-screen app (own manifest, gold BC ADMIN icon, scope /admin).
+- The shop app shows **no admin button anywhere**, even on the owner's phone. Admin dashboard reachable only at /admin.
+
 ## v1.4.2 – 2026-11-21
 - New hero: proud red-comb rooster in a tall glossy gold-framed card (no circle crop).
 - Admin is invisible to customers: no "Shop login" link, no Admin app shortcut, /admin hidden from search engines. Owner opens /admin directly (bookmark it).
