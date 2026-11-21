@@ -1,0 +1,22 @@
+{
+  "name": "Bismilla Chicken – Kota",
+  "short_name": "Bismilla",
+  "description": "Fresh chicken at today's paper rate. Door delivery & pickup in Kota and Vidyanagar.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF7ED",
+  "theme_color": "#B91C1C",
+  "categories": ["food", "shopping"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "My orders", "url": "/orders" },
+    { "name": "Admin", "url": "/admin" }
+  ]
+}
