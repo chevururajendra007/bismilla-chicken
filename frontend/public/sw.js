@@ -1,5 +1,5 @@
 // Bismilla Chicken service worker: offline shell + web push + update handling.
-const CACHE = 'bc-shell-v1.0.1';
+const CACHE = 'bc-shell-v1.1.0';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/owner.jpg'];
 
 self.addEventListener('install', (e) => {

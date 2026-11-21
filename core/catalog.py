@@ -33,10 +33,18 @@ DEFAULT_SETTINGS = {
         "road_factor": 1.3,           # straight line -> road distance
     },
     "shop_open": True,
-    "accept_cod": True,
-    "accept_phonepe": True,
-    "staff_phones": [],              # riders / counter staff (10-digit). Admins come from ADMIN_PHONES too.
-    "admin_phones": [],              # extra admins added from the admin panel
+    # Payment options shown to customers
+    "accept_cod": True,              # Cash on delivery / cash at shop
+    "accept_upi_delivery": True,     # Pay by PhonePe/UPI at the door (scan QR when delivered)
+    "accept_prepaid": True,          # Pay now (PhonePe/UPI) – shop starts cutting only after payment
+    "cod_max_amount": 0,             # orders above this ₹ must be prepaid (0 = no limit)
+    "staff_phones": [],              # delivery boys / counter staff (mobile OTP login)
+    "staff_emails": [],              # staff who sign in with Clerk (Google / email)
+    "admin_phones": [],              # extra admins by mobile
+    "admin_emails": [],              # extra admins by email (Clerk)
+    # Monthly maintenance plan – only the platform provider (superadmin) can change this
+    "subscription": {"plan": "Standard", "monthly_fee": 499, "paid_until": None, "provider": "Rajendra Chevuru",
+                     "provider_phone": "", "notes": ""},
     "announcement": "Fresh chicken cut in front of you. Daily paper rate.",
 }
 
@@ -115,6 +123,9 @@ def get_settings() -> dict:
     # forward-compatible defaults
     merged = {**DEFAULT_SETTINGS, **s}
     merged["delivery"] = {**DEFAULT_SETTINGS["delivery"], **(s.get("delivery") or {})}
+    merged["subscription"] = {**DEFAULT_SETTINGS["subscription"], **(s.get("subscription") or {})}
+    if "accept_phonepe" in s and "accept_prepaid" not in s:  # v1.0 setting name
+        merged["accept_prepaid"] = merged["accept_upi_delivery"] = s["accept_phonepe"]
     return merged
 
 

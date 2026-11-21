@@ -4,7 +4,7 @@ import { api, navigate, rupee, session } from '../api'
 export default function Orders({ requireLogin }) {
   const [list, setList] = useState(null)
   const load = () => api('/orders').then(setList).catch(() => setList([]))
-  useEffect(() => { session.token ? load() : requireLogin('Login to see your orders', load) }, []) // eslint-disable-line
+  useEffect(() => { session.token ? load() : requireLogin('Verify your mobile to see your orders', load) }, []) // eslint-disable-line
 
   if (!list) return <div className="loading">Loading…</div>
   if (!list.length) return <div className="empty"><p>No orders yet.</p><button className="btn primary" onClick={() => navigate('/')}>Order now</button></div>

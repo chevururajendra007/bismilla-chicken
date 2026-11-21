@@ -1,4 +1,4 @@
-# Bismilla Chicken – Online Ordering App (v1.0.1)
+# Bismilla Chicken – Online Ordering App (v1.1.0)
 
 Fresh chicken ordering for **Bismilla Chicken**, Kota (opp. Extra Mart) & Vidyanagar, Andhra Pradesh.
 Customers order from mobile, tablet or desktop (installable PWA). The owner manages the daily **paper rate**, orders, payments and deliveries from the same app after logging in with **mobile OTP**.
@@ -40,6 +40,31 @@ Built on the class framework **Model (LLM) + Harness = Agent**, deployed on **Ve
 - Delivery rules, branch addresses & exact map pins, open/closed, COD/PhonePe toggles
 - Add staff (delivery boys) and extra admins by phone number
 - Broadcast offers ("Natu Kodi in stock today")
+
+## Who logs in how (v1.1)
+
+| Person | How | Stays signed in |
+|---|---|---|
+| Customer | No account. Name + mobile (+ optional email) at checkout, mobile confirmed **once** by SMS OTP | 180 days on that phone |
+| Shop owner (admin) | **Clerk** – "Continue with Google" or email code | 365 days on that phone |
+| Delivery boy / counter staff | Mobile OTP once (number added in Settings → Team) | 365 days |
+| You (platform provider) | Clerk email in `SUPERADMIN_EMAILS` (or `SUPERADMIN_PHONES`) → **Platform** tab | 365 days |
+
+### Set up Clerk (5 minutes)
+1. dashboard.clerk.com → **Create application** "Bismilla Chicken" → enable **Google** and **Email**.
+2. Copy keys into Vercel env: `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`.
+3. Set `ADMIN_EMAILS=<owner's gmail>` and `SUPERADMIN_EMAILS=<your email>`; redeploy.
+4. Clerk → Sessions → set **maximum lifetime** to the longest allowed (the app session itself lasts 365 days).
+5. Optional: set `ADMIN_OTP_LOGIN=false` to allow admin access only through Clerk.
+
+### Database (Vercel → Storage → Neon Postgres)
+Vercel → project **bismilla-chicken** → **Storage** → **Create Database** → **Neon (Postgres)** → region **Mumbai/Singapore** →
+connect to the project. That adds `DATABASE_URL`; the app creates its tables on first request. Query history any time
+from Neon's SQL editor, e.g.:
+```sql
+SELECT date_trunc('day', created_at AT TIME ZONE 'Asia/Kolkata') d, count(*), sum(total)
+FROM orders WHERE status <> 'cancelled' GROUP BY 1 ORDER BY 1 DESC;
+```
 
 ## Run locally
 

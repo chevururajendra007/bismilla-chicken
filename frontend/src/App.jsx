@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, cart, enablePush, navigate, session, subscribe } from './api'
 import Chat from './components/Chat'
-import Login from './components/Login'
+import { clerkSignOut } from './components/clerk'
+import VerifyPhone from './components/VerifyPhone'
 import Admin from './pages/Admin'
 import Checkout from './pages/Checkout'
 import Home from './pages/Home'
@@ -68,7 +69,7 @@ export default function App() {
   const turnOnPush = async () => setPushState(await enablePush(cfg?.vapid_public_key))
 
   const count = Object.keys(items).length
-  const isStaff = user && (user.role === 'admin' || user.role === 'staff')
+  const isStaff = user && ['superadmin', 'admin', 'staff'].includes(user.role)
   const route = path.split('?')[0]
   const ctx = { cfg, menu, loadMenu, user, items, requireLogin, pushState, turnOnPush }
 
@@ -88,9 +89,7 @@ export default function App() {
         <nav>
           {installEvt && <button className="btn ghost sm" onClick={async () => { installEvt.prompt(); await installEvt.userChoice; setInstallEvt(null) }}>⬇ Install</button>}
           {isStaff && <button className={`btn sm ${route === '/admin' ? 'primary' : 'ghost'}`} onClick={() => navigate('/admin')}>Admin</button>}
-          {user
-            ? <button className="btn ghost sm" onClick={() => navigate('/orders')}>Orders</button>
-            : <button className="btn ghost sm" onClick={() => setLogin({ title: 'Login with mobile OTP' })}>Login</button>}
+          {user?.phone && !isStaff && <button className="btn ghost sm" onClick={() => navigate('/orders')}>My orders</button>}
         </nav>
       </header>
 
@@ -117,12 +116,20 @@ export default function App() {
 
       <footer className="foot">
         <p>Bismilla Chicken · Opp. Extra Mart, Kota & Vidyanagar · 📞 <a href={`tel:${cfg?.shop_phone || '7904711708'}`}>{cfg?.shop_phone || '7904711708'}</a></p>
-        <p className="muted">v{cfg?.version || '1.0.0'} {user && <>· {user.phone} ({user.role}) · <button className="link" onClick={() => { session.logout(); navigate('/') }}>Logout</button></>}</p>
+        <p className="muted">v{cfg?.version || '1.1.0'} · {user
+          ? <>{user.phone || user.email} ({user.role}) · <button className="link" onClick={async () => { await clerkSignOut(); session.logout(); navigate('/') }}>Logout</button></>
+          : <button className="link" onClick={() => navigate('/admin')}>Shop login</button>}</p>
       </footer>
 
       {login && (
-        <Login title={login.title} onClose={() => setLogin(null)}
-          onDone={(u) => { setLogin(null); login.then?.(u); if (cfg?.vapid_public_key && Notification?.permission === 'default') turnOnPush() }} />
+        <div className="modal-bg" onClick={() => setLogin(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="x" onClick={() => setLogin(null)} aria-label="Close">×</button>
+            <h3>{login.title}</h3>
+            <VerifyPhone compact askEmail={false} askName={false}
+              onVerified={(u) => { setLogin(null); login.then?.(u); if (cfg?.vapid_public_key && window.Notification?.permission === 'default') turnOnPush() }} />
+          </div>
+        </div>
       )}
     </div>
   )

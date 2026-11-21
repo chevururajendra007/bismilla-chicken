@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, navigate, qtyLabel, rupee } from '../api'
+import { api, navigate, qtyLabel, rupee, session } from '../api'
+import { clerkSignOut, loadClerk } from '../components/clerk'
 import MapView from '../components/MapView'
+import VerifyPhone from '../components/VerifyPhone'
 
 const NEXT = {
   placed: [['accepted', '✅ Accept'], ['cancelled', '✕ Reject']],
@@ -10,19 +12,32 @@ const NEXT = {
   out_for_delivery: [['delivered', '🏁 Delivered']],
 }
 
-export default function Admin({ user, requireLogin, cfg, loadMenu, pushState, turnOnPush }) {
+const STAFF = ['superadmin', 'admin', 'staff']
+
+export default function Admin({ user, cfg, loadMenu, pushState, turnOnPush }) {
   const [tab, setTab] = useState('orders')
-  useEffect(() => { if (!user) requireLogin('Admin login (mobile OTP)', () => {}) }, [user]) // eslint-disable-line
-  if (!user) return <div className="empty"><p>Admin login required.</p></div>
-  if (!['admin', 'staff'].includes(user.role)) return (
-    <div className="empty"><p>This number ({user.phone}) is not an admin.</p><button className="btn" onClick={() => navigate('/')}>Home</button></div>
-  )
-  const isAdmin = user.role === 'admin'
+  const [billing, setBilling] = useState(null)
+  const isStaff = user && STAFF.includes(user.role)
+  const isAdmin = user && ['superadmin', 'admin'].includes(user.role)
+  useEffect(() => { if (isAdmin) api('/admin/settings').then((r) => setBilling(r.billing)).catch(() => {}) }, [isAdmin])
+
+  if (!isStaff) return <AdminLogin cfg={cfg} user={user} />
+  const tabs = [['orders', '📋 Orders'], ...(isAdmin ? [['history', '📊 History'], ['rates', '💹 Rates'], ['settings', '⚙️ Settings'], ['notify', '🔔 Notify']] : []),
+    ...(user.role === 'superadmin' ? [['platform', '🛠 Platform']] : [])]
   return (
     <div className="admin">
+      <div className="admin-who">
+        <span>👤 {user.name || user.email || user.phone} · <b>{user.role}</b></span>
+        <button className="link small" onClick={async () => { await clerkSignOut(); session.logout(); navigate('/') }}>Sign out</button>
+      </div>
+      {billing && ['due_soon', 'overdue'].includes(billing.state) && (
+        <div className={`banner ${billing.state === 'overdue' ? 'warn' : ''}`}>
+          🧾 App maintenance {billing.state === 'overdue' ? `overdue since ${billing.paid_until}` : `due on ${billing.paid_until}`} · ₹{billing.monthly_fee}/month.
+          Contact {billing.provider}{billing.provider_phone ? ` (${billing.provider_phone})` : ''}.
+        </div>
+      )}
       <div className="tabs">
-        {[['orders', '📋 Orders'], ...(isAdmin ? [['rates', '💹 Rates'], ['settings', '⚙️ Settings'], ['notify', '🔔 Notify']] : [])]
-          .map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
+        {tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {pushState !== 'granted' && cfg?.vapid_public_key && (
         <div className="banner">🔔 Turn on notifications to hear about new orders instantly. <button className="btn sm primary" onClick={turnOnPush}>Turn on</button></div>
@@ -31,7 +46,212 @@ export default function Admin({ user, requireLogin, cfg, loadMenu, pushState, tu
       {tab === 'rates' && <RatesTab loadMenu={loadMenu} />}
       {tab === 'settings' && <SettingsTab cfg={cfg} />}
       {tab === 'notify' && <NotifyTab />}
+      {tab === 'history' && <HistoryTab />}
+      {tab === 'platform' && <PlatformTab />}
     </div>
+  )
+}
+
+// Owner signs in with Clerk (Google / email) once; the app then keeps this phone logged in.
+function AdminLogin({ cfg, user }) {
+  const el = useRef(null)
+  const [state, setState] = useState('loading')
+  const [err, setErr] = useState('')
+  const [otp, setOtp] = useState(false)
+  const hasClerk = !!(cfg?.clerk_publishable_key && cfg?.clerk_frontend_api)
+
+  useEffect(() => {
+    if (!cfg) return
+    if (!hasClerk) { setState('noclerk'); return }
+    let alive = true
+    loadClerk(cfg.clerk_publishable_key, cfg.clerk_frontend_api).then(async (clerk) => {
+      if (!alive || !clerk) return
+      const exchange = async () => {
+        try {
+          setState('checking')
+          const token = await clerk.session.getToken()
+          const r = await api('/auth/clerk', { method: 'POST', body: { token } })
+          session.save(r.token, r.user)
+        } catch (e) { setErr(e.message); setState('denied') }
+      }
+      if (clerk.user) return exchange()
+      setState('signin')
+      clerk.mountSignIn(el.current, { forceRedirectUrl: '/admin', signUpForceRedirectUrl: '/admin' })
+      clerk.addListener(({ user: u }) => { if (u && alive) exchange() })
+    }).catch((e) => { setErr(e.message); setState('noclerk') })
+    return () => { alive = false; try { window.Clerk?.unmountSignIn(el.current) } catch { /* ignore */ } }
+  }, [cfg]) // eslint-disable-line
+
+  return (
+    <div className="admin-login">
+      <h2>Shop admin</h2>
+      {user && !STAFF.includes(user.role) && <p className="muted small">You're verified as a customer ({user.phone}). Sign in with the shop account below.</p>}
+      {hasClerk && <>
+        <p className="muted">Sign in once with the shop's Google / email account – this phone stays signed in.</p>
+        {state === 'checking' && <p>Checking access…</p>}
+        {state === 'denied' && <div className="banner warn">{err} <button className="btn sm" onClick={async () => { await clerkSignOut(); window.location.reload() }}>Use another account</button></div>}
+        <div ref={el} className="clerk-box" />
+      </>}
+      {!hasClerk && state !== 'loading' && <p className="muted small">Google / email sign-in (Clerk) is not set up yet{err ? ` (${err})` : ''}.</p>}
+      {cfg?.admin_otp_login && (
+        <div className="panel">
+          {!otp && <button className="btn ghost block" onClick={() => setOtp(true)}>📱 {hasClerk ? 'Staff / delivery boy?' : 'Owner & staff'} – sign in with mobile OTP</button>}
+          {otp && <VerifyPhone compact askEmail={false} askName={false} onVerified={(u) => { if (!STAFF.includes(u.role)) setErr(`${u.phone} is not on the shop team.`) }} />}
+          {otp && err && !hasClerk && <p className="err small">{err}</p>}
+          <p className="muted small">One-time login. You stay signed in on this phone.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HistoryTab() {
+  const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)
+  const monthStart = today.slice(0, 8) + '01'
+  const [from, setFrom] = useState(monthStart)
+  const [to, setTo] = useState(today)
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState('')
+  const [data, setData] = useState(null)
+  const [audit, setAudit] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const load = async () => {
+    setBusy(true)
+    try { setData(await api(`/admin/history?date_from=${from}&date_to=${to}&q=${encodeURIComponent(q)}&status=${status}`)) } finally { setBusy(false) }
+  }
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  function csv() {
+    const head = ['Order', 'Date', 'Customer', 'Mobile', 'Email', 'Type', 'Kg', 'Subtotal', 'Delivery', 'Total', 'Payment', 'Pay status', 'UTR', 'Status', 'Paper rate', 'Address']
+    const rows = data.orders.map((o) => [o.code, new Date(o.created * 1000).toLocaleString('en-IN'), o.name, o.phone, o.email || '', o.fulfilment,
+      o.weight_kg, o.subtotal, o.delivery_fee, o.total, o.payment_label, o.payment_status, o.utr || '', o.status, o.paper_rate, o.address || ''])
+    const text = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/csv' }))
+    a.download = `bismilla-orders-${from}-to-${to}.csv`
+    a.click()
+  }
+
+  const s = data?.summary
+  return (
+    <>
+      <div className="panel filters">
+        <label>From<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label>To<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label>Search<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mobile / name / order no" /></label>
+        <label>Status<select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">All</option>{['placed', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'picked_up', 'cancelled'].map((x) => <option key={x}>{x}</option>)}
+        </select></label>
+        <div className="row"><button className="btn primary" onClick={load} disabled={busy}>{busy ? 'Loading…' : 'Show'}</button>
+          {data?.orders?.length > 0 && <button className="btn ghost" onClick={csv}>⬇ Excel (CSV)</button>}</div>
+      </div>
+      {s && <div className="stats">
+        <div><b>{s.orders}</b><small>orders</small></div>
+        <div><b>{s.kg}</b><small>kg sold</small></div>
+        <div><b>{rupee(s.revenue)}</b><small>sales</small></div>
+        <div><b>{rupee(s.collected)}</b><small>collected · {rupee(s.pending_payments)} pending</small></div>
+      </div>}
+      {s && Object.keys(s.by_payment).length > 0 && <p className="small muted">{Object.entries(s.by_payment).map(([k, v]) => `${k}: ${rupee(v)}`).join(' · ')} · {s.customers} customers · {s.cancelled} cancelled</p>}
+      {data && (
+        <div className="table-wrap">
+          <table className="htable">
+            <thead><tr><th>Order</th><th>Date</th><th>Customer</th><th>Kg</th><th>Total</th><th>Payment</th><th>Status</th></tr></thead>
+            <tbody>
+              {data.orders.map((o) => (
+                <tr key={o.code}>
+                  <td>{o.code}</td>
+                  <td>{new Date(o.created * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                  <td>{o.name}<br /><a href={`tel:${o.phone}`}>{o.phone}</a></td>
+                  <td>{o.weight_kg}</td>
+                  <td>{rupee(o.total)}</td>
+                  <td>{o.payment_label}<br /><small className={o.payment_status === 'paid' ? 'ok' : 'warn-t'}>{o.payment_status}{o.utr ? ` · ${o.utr}` : ''}</small></td>
+                  <td><span className={`st st-${o.status}`}>{o.status_label}</span></td>
+                </tr>
+              ))}
+              {!data.orders.length && <tr><td colSpan={7} className="center muted">No orders in this period.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {data?.top_customers?.length > 0 && (
+        <div className="panel">
+          <h3>Top customers</h3>
+          {data.top_customers.map((c) => <p key={c.phone} className="cline2"><span>{c.name} · <a href={`tel:${c.phone}`}>{c.phone}</a></span><span>{c.orders} orders · {c.kg} kg · <b>{rupee(c.total)}</b></span></p>)}
+        </div>
+      )}
+      <div className="panel">
+        <h3>Activity log</h3>
+        {!audit ? <button className="btn sm ghost" onClick={() => api('/admin/audit').then(setAudit)}>Show who changed what</button>
+          : audit.map((a, i) => <p key={i} className="small cline2"><span>{new Date(a.ts * 1000).toLocaleString('en-IN')} · {a.actor}</span><span>{a.action} {a.detail?.to ? `→ ₹${a.detail.to}` : a.detail?.code || ''}</span></p>)}
+      </div>
+    </>
+  )
+}
+
+// Only for the platform provider (you): health, usage and the monthly maintenance plan.
+function PlatformTab() {
+  const [p, setP] = useState(null)
+  const [sub, setSub] = useState(null)
+  const [msg, setMsg] = useState('')
+  const load = () => api('/platform').then((r) => { setP(r); setSub(r.billing) })
+  useEffect(() => { load() }, [])
+  if (!p) return <div className="loading">Loading…</div>
+  async function save() {
+    try {
+      const { plan, monthly_fee, paid_until, provider, provider_phone, notes } = sub
+      await api('/platform/subscription', { method: 'PUT', body: { plan, monthly_fee: Number(monthly_fee), paid_until: paid_until || null, provider, provider_phone, notes } })
+      setMsg('✅ Saved'); load()
+    } catch (e) { setMsg('❌ ' + e.message) }
+  }
+  const extend = (months) => {
+    const base = sub.paid_until && sub.paid_until > new Date().toISOString().slice(0, 10) ? new Date(sub.paid_until) : new Date()
+    base.setMonth(base.getMonth() + months)
+    setSub({ ...sub, paid_until: base.toISOString().slice(0, 10) })
+  }
+  const u = p.usage
+  return (
+    <>
+      <div className="panel">
+        <h3>System health · v{p.version}</h3>
+        <ul className="health">
+          <li className={p.storage === 'postgres' ? 'ok' : 'warn-t'}>Database: {p.storage}</li>
+          <li className={p.clerk ? 'ok' : 'warn-t'}>Admin sign-in (Clerk): {p.clerk ? 'on' : 'not set'}</li>
+          <li className={p.sms ? 'ok' : 'warn-t'}>SMS OTP: {p.sms || 'not set'}{p.otp_dev_mode ? ' · demo OTP on screen' : ''}</li>
+          <li className={p.push ? 'ok' : 'warn-t'}>Push notifications: {p.push ? 'on' : 'off'}</li>
+          <li className={p.llm.reachable ? 'ok' : 'muted'}>AI model: {p.llm.reachable ? p.llm.model : 'offline – rule answers'}</li>
+        </ul>
+      </div>
+      <div className="stats">
+        <div><b>{u.this_month.orders}</b><small>orders this month</small></div>
+        <div><b>{rupee(u.this_month.revenue)}</b><small>sales this month</small></div>
+        <div><b>{u.last_month.orders}</b><small>orders last month</small></div>
+        <div><b>{rupee(u.last_month.revenue)}</b><small>sales last month</small></div>
+      </div>
+      <div className="panel">
+        <h3>Maintenance plan <span className={`st st-${sub.state === 'active' ? 'delivered' : sub.state === 'overdue' ? 'placed' : 'ready'}`}>{sub.state}{sub.days_left != null ? ` · ${sub.days_left} days` : ''}</span></h3>
+        <div className="grid2">
+          <label>Plan<input value={sub.plan} onChange={(e) => setSub({ ...sub, plan: e.target.value })} /></label>
+          <label>Monthly fee (₹)<input type="number" value={sub.monthly_fee} onChange={(e) => setSub({ ...sub, monthly_fee: e.target.value })} /></label>
+          <label>Paid until<input type="date" value={sub.paid_until || ''} onChange={(e) => setSub({ ...sub, paid_until: e.target.value })} /></label>
+          <label>Your phone (shown to owner)<input value={sub.provider_phone || ''} onChange={(e) => setSub({ ...sub, provider_phone: e.target.value })} /></label>
+        </div>
+        <label>Notes<input value={sub.notes || ''} onChange={(e) => setSub({ ...sub, notes: e.target.value })} placeholder="e.g. Paid ₹1,497 for Dec–Feb via PhonePe" /></label>
+        <div className="row wrap">
+          <button className="btn sm ghost" onClick={() => extend(1)}>+1 month</button>
+          <button className="btn sm ghost" onClick={() => extend(3)}>+3 months</button>
+          <button className="btn sm ghost" onClick={() => extend(12)}>+1 year</button>
+          <button className="btn primary" onClick={save}>Save plan</button>
+        </div>
+        {msg && <p>{msg}</p>}
+        <p className="muted small">The owner sees a reminder 5 days before the due date. Ordering never stops automatically.</p>
+      </div>
+      <div className="panel">
+        <h3>Shop admins</h3>
+        <p className="small">Emails: {p.admins.emails.join(', ') || '—'}</p>
+        <p className="small">Phones: {p.admins.phones.join(', ') || '—'}</p>
+      </div>
+    </>
   )
 }
 
@@ -95,6 +315,7 @@ function OrdersTab({ cfg }) {
             <b>{o.code}</b>
             <span className={`st st-${o.status}`}>{o.status_label}</span>
           </div>
+          {o.awaiting_payment && <p className="small warn-t">⏳ Prepaid – waiting for payment. Don't start cutting yet.</p>}
           <p className="small">{new Date(o.created * 1000).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {o.name || 'Customer'} · <a href={`tel:${o.phone}`}>{o.phone}</a></p>
           <ul className="ao-items">{o.items.map((l) => <li key={l.product_id}>{l.name} — <b>{qtyLabel(l.qty, l.unit)}</b>{l.note && ` (${l.note})`}</li>)}</ul>
           {o.notes && <p className="small">📝 {o.notes}</p>}
@@ -104,11 +325,11 @@ function OrdersTab({ cfg }) {
               : <>🏪 Pickup at {o.branch?.name}</>}
           </p>
           <p className="small">
-            <b>{rupee(o.total)}</b> · {o.payment_method === 'cod' ? 'Cash' : 'PhonePe'} ·
+            <b>{rupee(o.total)}</b> · {o.payment_label} ·
             <span className={o.payment_status === 'paid' ? 'ok' : o.payment_status === 'claimed' ? 'warn-t' : 'muted'}> {o.payment_status}{o.utr ? ` (UTR ${o.utr})` : ''}</span>
           </p>
           <div className="row wrap">
-            {(NEXT[o.status] || []).map(([st, label]) => <button key={st} className={`btn sm ${st === 'cancelled' ? 'ghost' : 'primary'}`} onClick={() => act(o.code, st)}>{label}</button>)}
+            {(NEXT[o.status] || []).map(([st, label]) => <button key={st} className={`btn sm ${st === 'cancelled' ? 'ghost' : 'primary'}`} disabled={o.awaiting_payment && st === 'accepted'} onClick={() => act(o.code, st).catch((e) => alert(e.message))}>{label}</button>)}
             {o.payment_status !== 'paid' && o.status !== 'cancelled' && <button className="btn sm ghost" onClick={() => paid(o.code, true)}>💰 Mark paid</button>}
             {o.status === 'out_for_delivery' && sharing !== o.code && <button className="btn sm ghost" onClick={() => startSharing(o.code)}>📡 Share my location</button>}
           </div>
@@ -215,10 +436,11 @@ function SettingsTab({ cfg }) {
   const [s, setS] = useState(null)
   const [branches, setBranches] = useState([])
   const [envAdmins, setEnvAdmins] = useState([])
+  const [envEmails, setEnvEmails] = useState([])
   const [msg, setMsg] = useState('')
   const [pickFor, setPickFor] = useState(null)
 
-  useEffect(() => { api('/admin/settings').then((r) => { setS(r.settings); setBranches(r.branches); setEnvAdmins(r.env_admins) }) }, [])
+  useEffect(() => { api('/admin/settings').then((r) => { setS(r.settings); setBranches(r.branches); setEnvAdmins(r.env_admins); setEnvEmails(r.env_admin_emails || []) }) }, [])
   if (!s) return <div className="loading">Loading…</div>
 
   const d = s.delivery
@@ -239,8 +461,11 @@ function SettingsTab({ cfg }) {
       <div className="panel">
         <h3>Shop</h3>
         <label className="check"><input type="checkbox" checked={s.shop_open} onChange={(e) => setS({ ...s, shop_open: e.target.checked })} /> Accepting orders (shop open)</label>
-        <label className="check"><input type="checkbox" checked={s.accept_cod} onChange={(e) => setS({ ...s, accept_cod: e.target.checked })} /> Cash on delivery</label>
-        <label className="check"><input type="checkbox" checked={s.accept_phonepe} onChange={(e) => setS({ ...s, accept_phonepe: e.target.checked })} /> PhonePe / UPI ({cfg?.upi_id})</label>
+        <h3>Payments</h3>
+        <label className="check"><input type="checkbox" checked={s.accept_cod} onChange={(e) => setS({ ...s, accept_cod: e.target.checked })} /> 💵 Cash on delivery / at shop</label>
+        <label className="check"><input type="checkbox" checked={s.accept_upi_delivery} onChange={(e) => setS({ ...s, accept_upi_delivery: e.target.checked })} /> 📱 PhonePe / UPI at delivery</label>
+        <label className="check"><input type="checkbox" checked={s.accept_prepaid} onChange={(e) => setS({ ...s, accept_prepaid: e.target.checked })} /> ✅ Prepaid – pay before cutting ({cfg?.upi_id})</label>
+        <label>Orders above this amount must be prepaid (₹, 0 = no limit)<input type="number" value={s.cod_max_amount || 0} onChange={(e) => setS({ ...s, cod_max_amount: e.target.value })} /></label>
         <label>Announcement on home page</label>
         <input value={s.announcement} onChange={(e) => setS({ ...s, announcement: e.target.value })} />
       </div>
@@ -280,11 +505,15 @@ function SettingsTab({ cfg }) {
       </div>
 
       <div className="panel">
-        <h3>Team (mobile OTP access)</h3>
-        <p className="muted small">Permanent admins (server): {envAdmins.join(', ')}</p>
-        <label>Extra admins (comma separated)</label>
+        <h3>Team</h3>
+        <p className="muted small">Permanent admins (server): {[...envAdmins, ...envEmails].join(', ')}</p>
+        <label>Admin emails – sign in with Google / email (comma separated)</label>
+        <input value={(s.admin_emails || []).join(', ')} onChange={(e) => setS({ ...s, admin_emails: phones(e.target.value) })} placeholder="owner@gmail.com" />
+        <label>Staff emails</label>
+        <input value={(s.staff_emails || []).join(', ')} onChange={(e) => setS({ ...s, staff_emails: phones(e.target.value) })} />
+        <label>Admin mobiles (OTP login)</label>
         <input value={(s.admin_phones || []).join(', ')} onChange={(e) => setS({ ...s, admin_phones: phones(e.target.value) })} />
-        <label>Staff / delivery boys (see & update orders, share location)</label>
+        <label>Delivery boys / staff mobiles (OTP login – see & update orders, share location)</label>
         <input value={(s.staff_phones || []).join(', ')} onChange={(e) => setS({ ...s, staff_phones: phones(e.target.value) })} />
       </div>
 

@@ -1,4 +1,6 @@
 """FastAPI server – all routes live under /api. On Vercel it runs as one Python function (api/index.py)."""
+from datetime import datetime, timedelta
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -19,6 +21,20 @@ class OtpVerify(BaseModel):
     phone: str
     code: str
     name: str | None = None
+    email: str | None = None
+
+
+class ClerkReq(BaseModel):
+    token: str
+
+
+class SubReq(BaseModel):
+    plan: str = "Standard"
+    monthly_fee: float = 499
+    paid_until: str | None = None
+    provider: str = "Rajendra Chevuru"
+    provider_phone: str = ""
+    notes: str = ""
 
 
 class QuoteReq(BaseModel):
@@ -74,7 +90,10 @@ def public_config():
         "shop_name": config.SHOP_NAME, "shop_phone": config.SHOP_PHONE, "version": config.APP_VERSION,
         "google_maps_key": config.GOOGLE_MAPS_API_KEY, "vapid_public_key": config.VAPID_PUBLIC_KEY,
         "branches": catalog.get_branches(), "delivery": s["delivery"],
-        "accept_cod": s["accept_cod"], "accept_phonepe": s["accept_phonepe"], "upi_id": config.UPI_ID,
+        "accept_cod": s["accept_cod"], "accept_upi_delivery": s["accept_upi_delivery"],
+        "accept_prepaid": s["accept_prepaid"], "cod_max_amount": s.get("cod_max_amount") or 0, "upi_id": config.UPI_ID,
+        "clerk_publishable_key": config.CLERK_PUBLISHABLE_KEY, "clerk_frontend_api": auth.clerk_frontend_api(),
+        "admin_otp_login": config.ADMIN_OTP_LOGIN,
     }
 
 
@@ -92,7 +111,7 @@ def quote(q: QuoteReq):
 def chat(req: ChatReq, user: dict | None = Depends(auth.optional_user)):
     if not req.message.strip():
         raise HTTPException(400, "Empty message")
-    return agent.chat(req.message, req.history, user["phone"] if user else None)
+    return agent.chat(req.message, req.history, (user or {}).get("phone") or None)
 
 
 # --------------------------------------------------------------------------- auth
@@ -103,7 +122,13 @@ def otp_request(r: OtpReq):
 
 @app.post("/api/auth/otp/verify")
 def otp_verify(r: OtpVerify):
-    return auth.verify_otp(r.phone, r.code, r.name)
+    return auth.verify_otp(r.phone, r.code, r.name, r.email)
+
+
+@app.post("/api/auth/clerk")
+def clerk_login(r: ClerkReq):
+    """Exchange a Clerk session token for a long-lived admin session on this device."""
+    return auth.clerk_login(r.token)
 
 
 @app.get("/api/me")
@@ -115,7 +140,7 @@ def me(user: dict = Depends(auth.current_user)):
 def push_subscribe(sub: dict, user: dict = Depends(auth.current_user)):
     if not sub.get("endpoint"):
         raise HTTPException(400, "Bad subscription")
-    push.subscribe(user["phone"], sub)
+    push.subscribe(user["id"], sub)
     return {"ok": True}
 
 
@@ -133,7 +158,7 @@ def my_orders(user: dict = Depends(auth.current_user)):
 @app.get("/api/orders/{code}")
 def get_order(code: str, user: dict = Depends(auth.current_user)):
     o = orders.get(code)
-    if o["phone"] != user["phone"] and user["role"] not in ("admin", "staff"):
+    if o["phone"] != user.get("phone") and user["role"] not in auth.STAFF_ROLES:
         raise HTTPException(403, "Not your order.")
     return orders.public(o)
 
@@ -146,7 +171,7 @@ def claim_paid(code: str, r: UtrReq, user: dict = Depends(auth.current_user)):
 @app.post("/api/orders/{code}/cancel")
 def cancel(code: str, user: dict = Depends(auth.current_user)):
     o = orders.get(code)
-    if o["phone"] != user["phone"]:
+    if o["phone"] != user.get("phone"):
         raise HTTPException(403, "Not your order.")
     if o["status"] != "placed":
         raise HTTPException(400, "Order already accepted – please call the shop to cancel.")
@@ -171,14 +196,16 @@ def rider_loc(code: str, r: LocReq, staff: dict = Depends(auth.require_staff)):
 
 @app.post("/api/admin/orders/{code}/paid")
 def admin_paid(code: str, r: PaidReq, staff: dict = Depends(auth.require_staff)):
-    return orders.mark_paid(code, r.paid)
+    return orders.mark_paid(code, r.paid, staff)
 
 
 @app.post("/api/admin/rate")
 def admin_rate(r: RateReq, admin: dict = Depends(auth.require_admin)):
     if not (30 <= r.paper_rate <= 1000):
         raise HTTPException(400, "Paper rate looks wrong (₹30–₹1000).")
-    catalog.set_paper_rate(r.paper_rate, admin["phone"])
+    old = catalog.get_settings()["paper_rate"]
+    catalog.set_paper_rate(r.paper_rate, admin["id"])
+    store.audit(admin["id"], "rate.update", {"from": old, "to": r.paper_rate})
     sent = 0
     if r.notify:
         m = catalog.get_menu()
@@ -208,20 +235,38 @@ def admin_products(products: list[dict], admin: dict = Depends(auth.require_admi
             q[k] = float(q.get(k) or 0)
         clean.append(q)
     catalog.save_products(clean)
+    store.audit(admin["id"], "products.update", {"count": len(clean)})
     return catalog.get_menu()
+
+
+def billing_status(s: dict) -> dict:
+    sub = s["subscription"]
+    out = {**sub, "state": "unknown", "days_left": None}
+    if sub.get("paid_until"):
+        days = (datetime.strptime(sub["paid_until"], "%Y-%m-%d").date() - datetime.strptime(catalog.today_ist(), "%Y-%m-%d").date()).days
+        out["days_left"] = days
+        out["state"] = "active" if days > 5 else "due_soon" if days >= 0 else "overdue"
+    return out
 
 
 @app.get("/api/admin/settings")
 def admin_get_settings(admin: dict = Depends(auth.require_admin)):
-    return {"settings": catalog.get_settings(), "branches": catalog.get_branches(), "env_admins": config.ADMIN_PHONES}
+    s = catalog.get_settings()
+    return {"settings": s, "branches": catalog.get_branches(), "env_admins": config.ADMIN_PHONES,
+            "env_admin_emails": config.ADMIN_EMAILS, "billing": billing_status(s), "me": admin}
 
 
 @app.put("/api/admin/settings")
 def admin_put_settings(body: dict, admin: dict = Depends(auth.require_admin)):
     s = catalog.get_settings()
-    for k in ("rate_mode", "shop_open", "accept_cod", "accept_phonepe", "announcement"):
+    for k in ("rate_mode", "shop_open", "accept_cod", "accept_upi_delivery", "accept_prepaid", "announcement"):
         if k in body:
             s[k] = body[k]
+    if "cod_max_amount" in body:
+        s["cod_max_amount"] = float(body["cod_max_amount"] or 0)
+    for k in ("staff_emails", "admin_emails"):
+        if k in body:
+            s[k] = sorted({auth.norm_email(e) for e in body[k] if str(e).strip()})
     if s["rate_mode"] not in ("paper", "manual"):
         s["rate_mode"] = "paper"
     if "delivery" in body:
@@ -232,6 +277,7 @@ def admin_put_settings(body: dict, admin: dict = Depends(auth.require_admin)):
         if k in body:
             s[k] = sorted({auth.norm_phone(p) for p in body[k] if str(p).strip()})
     catalog.save_settings(s)
+    store.audit(admin["id"], "settings.update", {k: body[k] for k in body if k not in ("branches", "subscription", "settings", "billing", "me")})
     if "branches" in body:
         bs = []
         for b in body["branches"]:
@@ -244,4 +290,64 @@ def admin_put_settings(body: dict, admin: dict = Depends(auth.require_admin)):
 
 @app.post("/api/admin/broadcast")
 def admin_broadcast(r: BroadcastReq, admin: dict = Depends(auth.require_admin)):
+    store.audit(admin["id"], "broadcast", {"title": r.title})
     return {"sent": push.broadcast(r.title[:60], r.body[:160], "/", customers_only=True)}
+
+
+# --------------------------------------------------------------------------- history & reports
+@app.get("/api/admin/history")
+def admin_history(date_from: str | None = None, date_to: str | None = None, q: str = "", status: str = "",
+                  admin: dict = Depends(auth.require_admin)):
+    today = catalog.today_ist()
+    d1, d2 = date_from or today, date_to or today
+    rows = store.history(d1, d2, q, status)
+    customers = {}
+    for o in rows:
+        if o["status"] == "cancelled":
+            continue
+        c = customers.setdefault(o["phone"], {"phone": o["phone"], "name": o.get("name"), "orders": 0, "total": 0, "kg": 0})
+        c["orders"] += 1
+        c["total"] += o["total"]
+        c["kg"] = round(c["kg"] + o["weight_kg"], 2)
+    return {"from": d1, "to": d2, "orders": [orders.public(o) for o in rows], "summary": orders.summarize(rows),
+            "top_customers": sorted(customers.values(), key=lambda c: -c["total"])[:20]}
+
+
+@app.get("/api/admin/orders/{code}/events")
+def admin_order_events(code: str, staff: dict = Depends(auth.require_staff)):
+    o = orders.get(code)
+    return {"history": o.get("history", []), "payment_status": o["payment_status"], "utr": o.get("utr")}
+
+
+@app.get("/api/admin/audit")
+def admin_audit(admin: dict = Depends(auth.require_admin)):
+    return store.audit_log(200)
+
+
+# --------------------------------------------------------------------------- platform (provider / superadmin)
+@app.get("/api/platform")
+def platform(sa: dict = Depends(auth.require_superadmin)):
+    s = catalog.get_settings()
+    today = datetime.strptime(catalog.today_ist(), "%Y-%m-%d")
+    this_m = today.replace(day=1)
+    last_m = (this_m - timedelta(days=1)).replace(day=1)
+    usage = {
+        "this_month": orders.summarize(store.history(this_m.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d"))),
+        "last_month": orders.summarize(store.history(last_m.strftime("%Y-%m-%d"), (this_m - timedelta(days=1)).strftime("%Y-%m-%d"))),
+    }
+    return {"version": config.APP_VERSION, "storage": store.backend_name(), "push": push.enabled(),
+            "llm": agent.llm_status(), "clerk": bool(config.CLERK_PUBLISHABLE_KEY), "sms": config.SMS_PROVIDER or None,
+            "otp_dev_mode": config.OTP_DEV_MODE, "billing": billing_status(s), "usage": usage,
+            "admins": {"emails": config.ADMIN_EMAILS + (s.get("admin_emails") or []),
+                       "phones": config.ADMIN_PHONES + (s.get("admin_phones") or [])}}
+
+
+@app.put("/api/platform/subscription")
+def platform_subscription(r: SubReq, sa: dict = Depends(auth.require_superadmin)):
+    if r.paid_until:
+        datetime.strptime(r.paid_until, "%Y-%m-%d")
+    s = catalog.get_settings()
+    s["subscription"] = r.model_dump()
+    catalog.save_settings(s)
+    store.audit(sa["id"], "subscription.update", r.model_dump())
+    return billing_status(s)

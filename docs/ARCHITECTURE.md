@@ -1,4 +1,4 @@
-# Architecture – Bismilla Chicken v1.0.0
+# Architecture – Bismilla Chicken v1.1.0
 
 ```
  Customer phone / tablet / PC (PWA)            Owner / staff phone (same PWA, role = admin/staff)
@@ -13,7 +13,7 @@
                              ├─ core/delivery  haversine × road factor, radius rules, ETA
                              ├─ core/orders    server-side pricing, status machine, UPI links
                              ├─ core/push      Web Push (VAPID) → customer + staff devices
-                             ├─ core/store     Upstash Redis REST (prod) / JSON file (dev)
+                             ├─ core/store     Postgres (Neon via Vercel) > Upstash Redis > JSON file
                              └─ agent.py       tools + local LLM + loop (rule fallback)
                                      │
                          LLM_BASE_URL (Ollama / LM Studio via tunnel)
@@ -40,9 +40,28 @@
 - When the rider taps **Share my location**, the phone posts GPS every ~12 s; the customer page polls every 10 s and recomputes ETA from the rider's position.
 - Serverless-friendly (no websockets). Upgrade path: Ably/Pusher channel per order.
 
-## Payments
+## Auth (v1.1)
+- Customers: OTP once at checkout → HS256 app token (180 d). No passwords, no accounts.
+- Admin: Clerk session JWT (RS256, verified with Clerk JWKS) → email checked against ADMIN_EMAILS / settings →
+  app token (365 d). Role re-checked on every request, so removing an admin is instant.
+- Roles: superadmin (provider) > admin (owner) > staff (delivery) > customer.
+
+## Payments (v1.1)
+| Method | When paid | Shop can start cutting |
+|---|---|---|
+| `cod` | Cash at door / counter | Immediately |
+| `upi_delivery` | PhonePe at door (same QR on the tracking page) | Immediately |
+| `prepaid` | Before preparation | Only after UTR is entered or owner taps **Mark paid** |
+Optional `cod_max_amount`: orders above it must be prepaid.
+
+## Payments (v1.0 notes)
 v1: UPI intent (`phonepe://pay` / `upi://pay`) to the owner's UPI ID + QR on desktop → customer submits UTR → owner verifies in PhonePe and taps **Mark paid**.
 v2: PhonePe Payment Gateway (merchant onboarding) with server-to-server callback → automatic "paid".
 
-## Data (Redis keys, prefix `bc:`)
+## Postgres tables
+`orders` (one row per order, JSONB copy), `order_events` (every status/payment change), `customers`
+(verified mobiles, order count, total spent), `audit_log` (rates, settings, logins, payments, billing),
+plus `kv`/`zset` for app state.
+
+## Data (keys, prefix `bc:`)
 `settings`, `branches`, `products`, `user:{phone}`, `otp:{phone}` (TTL 300 s), `order:{code}`, `orders` (zset), `uorders:{phone}` (zset), `orderseq`, `push:{phone}`, `pushusers` (zset), `ratehist` (zset).

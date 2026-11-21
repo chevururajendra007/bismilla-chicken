@@ -17,7 +17,7 @@ export default function Track({ code, cfg, requireLogin }) {
   const load = () => api(`/orders/${code}`).then((x) => { setO(x); setErr('') }).catch((e) => setErr(e.message))
 
   useEffect(() => {
-    if (!session.token) { requireLogin('Login to see your order', load); return }
+    if (!session.token) { requireLogin('Verify your mobile to see this order', load); return }
     load()
     timer.current = setInterval(load, 10000) // live tracking: poll every 10 s
     return () => clearInterval(timer.current)
@@ -70,13 +70,15 @@ export default function Track({ code, cfg, requireLogin }) {
           <a className="link" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${o.branch.lat},${o.branch.lng}`}>Directions →</a></div>
       )}
 
-      {o.payment_method === 'phonepe' && o.payment_status !== 'paid' && o.status !== 'cancelled' && (
+      {o.awaiting_payment && <p className="banner warn">⏳ Prepaid order – please pay {rupee(o.total)} below. The shop starts cutting as soon as payment is received.</p>}
+      {['prepaid', 'upi_delivery'].includes(o.payment_method) && o.payment_status !== 'paid' && o.status !== 'cancelled' && (
         <div className="panel pay">
-          <h3>Pay {rupee(o.total)} with PhonePe</h3>
+          <h3>{o.payment_method === 'prepaid' ? `Pay ${rupee(o.total)} now` : `Pay ${rupee(o.total)} by PhonePe at delivery`}</h3>
           {o.payment_status === 'claimed' ? (
             <p className="ok">✅ We received your transaction ID ({o.utr}). The shop will confirm shortly.</p>
           ) : (
             <>
+              {o.payment_method === 'upi_delivery' && <p className="muted small">You can pay now or when the chicken arrives – same QR.</p>}
               <div className="row">
                 <a className="btn primary" href={o.phonepe_link}>Open PhonePe</a>
                 <a className="btn ghost" href={o.upi_link}>Other UPI app</a>
@@ -96,7 +98,7 @@ export default function Track({ code, cfg, requireLogin }) {
       <div className="panel">
         {o.items.map((l) => <p key={l.product_id} className="cline2"><span>{l.name} × {qtyLabel(l.qty, l.unit)}</span><span>{rupee(l.amount)}</span></p>)}
         {o.delivery_fee > 0 && <p className="cline2"><span>Delivery</span><span>{rupee(o.delivery_fee)}</span></p>}
-        <p className="cline2 grand"><span>Total · {o.payment_method === 'cod' ? 'Cash' : 'PhonePe'}</span><span>{rupee(o.total)}</span></p>
+        <p className="cline2 grand"><span>Total · {o.payment_label}</span><span>{rupee(o.total)}</span></p>
         {o.address && <p className="muted small">📍 {o.address}</p>}
       </div>
 

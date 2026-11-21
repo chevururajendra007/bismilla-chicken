@@ -18,11 +18,12 @@ def enabled() -> bool:
     return bool(webpush and config.VAPID_PUBLIC_KEY and config.VAPID_PRIVATE_KEY)
 
 
-def subscribe(phone: str, sub: dict):
-    subs = store.get_json(f"push:{phone}", []) or []
+def subscribe(uid: str, sub: dict):
+    """uid = phone for customers/OTP staff, 'email:<x>' for Clerk admins."""
+    subs = store.get_json(f"push:{uid}", []) or []
     subs = [s for s in subs if s.get("endpoint") != sub.get("endpoint")] + [sub]
-    store.set_json(f"push:{phone}", subs[-5:])  # keep last 5 devices
-    store.zadd("pushusers", time.time(), phone)
+    store.set_json(f"push:{uid}", subs[-5:])  # keep last 5 devices
+    store.zadd("pushusers", time.time(), uid)
 
 
 def _send(phone: str, payload: dict) -> int:
@@ -53,8 +54,11 @@ def notify_user(phone: str, title: str, body: str, url: str = "/"):
 
 
 def staff_phones() -> list:
+    """All staff identities that should hear about new orders (phones + Clerk emails)."""
     s = catalog.get_settings()
-    return sorted(set(config.ADMIN_PHONES + (s.get("admin_phones") or []) + (s.get("staff_phones") or [])))
+    phones = config.ADMIN_PHONES + config.SUPERADMIN_PHONES + (s.get("admin_phones") or []) + (s.get("staff_phones") or [])
+    emails = config.ADMIN_EMAILS + (s.get("admin_emails") or []) + (s.get("staff_emails") or [])
+    return sorted(set(phones) | {f"email:{e}" for e in emails})
 
 
 def notify_staff(title: str, body: str, url: str = "/admin"):

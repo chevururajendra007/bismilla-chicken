@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, cart, navigate, qtyLabel, rupee } from '../api'
+import { api, cart, navigate, qtyLabel, rupee, session } from '../api'
 import MapView from '../components/MapView'
+import VerifyPhone from '../components/VerifyPhone'
 
-export default function Checkout({ cfg, menu, items, user, requireLogin }) {
+const PAY = [
+  { id: 'cod', flag: 'accept_cod', icon: '💵', title: (m) => (m === 'pickup' ? 'Cash at shop' : 'Cash on delivery'), sub: 'Pay cash when you get it' },
+  { id: 'upi_delivery', flag: 'accept_upi_delivery', icon: '📱', title: (m) => (m === 'pickup' ? 'PhonePe at shop' : 'PhonePe / UPI at delivery'), sub: 'Scan & pay when you get it' },
+  { id: 'prepaid', flag: 'accept_prepaid', icon: '✅', title: () => 'Pay now (prepaid)', sub: 'PhonePe / UPI now – we start cutting right away' },
+]
+
+export default function Checkout({ cfg, menu, items, user }) {
   const [mode, setMode] = useState('delivery')
   const [pay, setPay] = useState('cod')
   const [branch, setBranch] = useState('kota')
@@ -10,18 +17,26 @@ export default function Checkout({ cfg, menu, items, user, requireLogin }) {
   const [center, setCenter] = useState(null)
   const [quote, setQuote] = useState(null)
   const [address, setAddress] = useState('')
-  const [name, setName] = useState(user?.name || '')
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [locErr, setLocErr] = useState('')
+  const [changing, setChanging] = useState(false)
 
+  const verified = user && user.phone && !changing
   const products = useMemo(() => Object.fromEntries((menu?.products || []).map((p) => [p.id, p])), [menu])
   const lines = Object.entries(items).map(([id, qty]) => ({ p: products[id], qty })).filter((l) => l.p)
   const subtotal = lines.reduce((s, l) => s + Math.round(l.p.price * l.qty), 0)
   const weight = lines.reduce((s, l) => s + (l.p.unit === 'kg' ? l.qty : 0), 0)
   const fee = mode === 'delivery' && quote?.deliverable ? quote.fee : 0
+  const total = subtotal + fee
   const saved = user?.addresses || []
+  const codCap = Number(cfg?.cod_max_amount || 0)
+  const payOptions = PAY.filter((p) => cfg?.[p.flag] !== false)
+  const mustPrepay = codCap > 0 && total > codCap
+
+  useEffect(() => { if (mustPrepay && pay !== 'prepaid') setPay('prepaid') }, [mustPrepay]) // eslint-disable-line
+  useEffect(() => { if (payOptions.length && !payOptions.find((p) => p.id === pay)) setPay(payOptions[0].id) }, [cfg]) // eslint-disable-line
 
   useEffect(() => {
     if (mode !== 'delivery' || !loc) return
@@ -38,20 +53,19 @@ export default function Checkout({ cfg, menu, items, user, requireLogin }) {
   }
 
   async function place() {
-    setErr('')
-    requireLogin('Login to place your order', async (u) => {
-      setBusy(true)
-      try {
-        const o = await api('/orders', {
-          method: 'POST', body: {
-            items: lines.map((l) => ({ product_id: l.p.id, qty: l.qty })), fulfilment: mode, payment_method: pay,
-            branch_id: mode === 'pickup' ? branch : quote?.branch_id, location: loc, address, name: name || u.name, notes,
-          },
-        })
-        cart.clear()
-        navigate(`/track/${o.code}`)
-      } catch (e) { setErr(e.message) } finally { setBusy(false) }
-    })
+    setErr(''); setBusy(true)
+    try {
+      const u = session.user
+      const o = await api('/orders', {
+        method: 'POST', body: {
+          items: lines.map((l) => ({ product_id: l.p.id, qty: l.qty })), fulfilment: mode, payment_method: pay,
+          branch_id: mode === 'pickup' ? branch : quote?.branch_id, location: loc, address,
+          name: u?.name, email: u?.email || null, notes,
+        },
+      })
+      cart.clear()
+      navigate(`/track/${o.code}`)
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
   if (!menu) return <div className="loading">Loading…</div>
@@ -59,7 +73,8 @@ export default function Checkout({ cfg, menu, items, user, requireLogin }) {
     <div className="empty"><p>🛒 Your cart is empty.</p><button className="btn primary" onClick={() => navigate('/')}>Browse today's chicken</button></div>
   )
 
-  const canPlace = mode === 'pickup' || (loc && quote?.deliverable && address.trim().length >= 5)
+  const locationOk = mode === 'pickup' || (loc && quote?.deliverable && address.trim().length >= 5)
+  const canPlace = verified && locationOk
 
   return (
     <div className="checkout">
@@ -78,7 +93,7 @@ export default function Checkout({ cfg, menu, items, user, requireLogin }) {
         ))}
       </div>
 
-      <h3>How do you want it?</h3>
+      <h3>1 · How do you want it?</h3>
       <div className="seg">
         <button className={mode === 'delivery' ? 'on' : ''} onClick={() => setMode('delivery')}>🛵 Door delivery</button>
         <button className={mode === 'pickup' ? 'on' : ''} onClick={() => setMode('pickup')}>🏪 Pickup</button>
@@ -92,7 +107,7 @@ export default function Checkout({ cfg, menu, items, user, requireLogin }) {
               <span><b>{b.name}</b><br /><small className="muted">{b.address} · {b.hours}</small></span>
             </label>
           ))}
-          <p className="muted small">Ready in about {cfg?.delivery?.prep_minutes || 15} minutes. We'll notify you.</p>
+          <p className="muted small">Ready in about {cfg?.delivery?.prep_minutes || 15} minutes.</p>
         </div>
       ) : (
         <div className="panel">
@@ -119,30 +134,47 @@ export default function Checkout({ cfg, menu, items, user, requireLogin }) {
           <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. 4-12, Gandhi street, near Ramalayam" />
         </div>
       )}
-
-      <label>Name</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
       <label>Cutting instructions (optional)</label>
       <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Small pieces / biryani cut / keep liver" />
 
-      <h3>Payment</h3>
-      <div className="seg">
-        {cfg?.accept_cod !== false && <button className={pay === 'cod' ? 'on' : ''} onClick={() => setPay('cod')}>💵 Cash {mode === 'pickup' ? 'at shop' : 'on delivery'}</button>}
-        {cfg?.accept_phonepe !== false && <button className={pay === 'phonepe' ? 'on' : ''} onClick={() => setPay('phonepe')}>📱 PhonePe / UPI</button>}
+      <h3>2 · Your details</h3>
+      {verified ? (
+        <div className="panel verified">
+          <p>✅ <b>{user.name || 'Customer'}</b> · +91 {user.phone}{user.email ? ` · ${user.email}` : ''}</p>
+          <button className="link small" onClick={() => setChanging(true)}>Not you? Use another number</button>
+        </div>
+      ) : (
+        <VerifyPhone onVerified={() => setChanging(false)} />
+      )}
+
+      <h3>3 · Payment</h3>
+      <div className="paylist">
+        {payOptions.map((p) => {
+          const disabled = mustPrepay && p.id !== 'prepaid'
+          return (
+            <label key={p.id} className={`payopt ${pay === p.id ? 'on' : ''} ${disabled ? 'off' : ''}`}>
+              <input type="radio" name="pay" checked={pay === p.id} disabled={disabled} onChange={() => setPay(p.id)} />
+              <span className="pi">{p.icon}</span>
+              <span><b>{p.title(mode)}</b><br /><small className="muted">{p.sub}</small></span>
+            </label>
+          )
+        })}
       </div>
+      {mustPrepay && <p className="small warn-t">Orders above {rupee(codCap)} must be paid in advance.</p>}
 
       <div className="panel totals">
         <p><span>Items ({weight} kg)</span><span>{rupee(subtotal)}</span></p>
         {mode === 'delivery' && <p><span>Delivery</span><span>{fee ? rupee(fee) : 'FREE'}</span></p>}
-        <p className="grand"><span>Total</span><span>{rupee(subtotal + fee)}</span></p>
-        <p className="muted small">Final price is by actual weight at today's rate (₹{menu.paper_rate}/kg paper rate).</p>
+        <p className="grand"><span>Total</span><span>{rupee(total)}</span></p>
+        <p className="muted small">Today's paper rate ₹{menu.paper_rate}/kg. Final amount is by actual weight.</p>
       </div>
 
       {err && <p className="err">{err}</p>}
       <button className="btn primary block big" disabled={busy || !canPlace} onClick={place}>
-        {busy ? 'Placing order…' : `Place order · ${rupee(subtotal + fee)}`}
+        {busy ? 'Placing order…' : pay === 'prepaid' ? `Place order & pay ${rupee(total)}` : `Place order · ${rupee(total)}`}
       </button>
-      {!canPlace && mode === 'delivery' && <p className="muted small center">Pick your location and enter your address to continue.</p>}
+      {!verified && <p className="muted small center">Verify your mobile number above to place the order.</p>}
+      {verified && !locationOk && mode === 'delivery' && <p className="muted small center">Pick your location and enter your address to continue.</p>}
     </div>
   )
 }
