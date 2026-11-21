@@ -72,7 +72,8 @@ def test_two_paper_rates_prices():
 
 def test_products_have_photos_and_owner_upload():
     m = c.get("/api/menu").json()
-    assert all(x["image"] for x in m["products"])
+    imgs = {x["id"]: x["image"] for x in m["products"]}
+    assert imgs["skinless-curry"].startswith("https://images.unsplash.com") and imgs["legs"] == ""
     png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     m = c.post("/api/admin/products/eggs/image", json={"data_url": png}, headers=ADMIN).json()
     url = next(x["image"] for x in m["products"] if x["id"] == "eggs")
