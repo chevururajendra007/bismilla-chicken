@@ -106,9 +106,22 @@ def create(user: dict, body: dict) -> dict:
         if not q["deliverable"]:
             raise HTTPException(400, q["reason"])
         fee, km, eta, branch_id = q["fee"], q["distance_km"], q["eta_minutes"], q["branch_id"]
-        addr = (body.get("address") or "").strip()[:300]
-        if len(addr) < 5:
-            raise HTTPException(400, "Enter house no / street / landmark.")
+        ap = body.get("address_parts") or {}
+        door = (ap.get("door_no") or "").strip()[:30]
+        street = (ap.get("street") or "").strip()[:120]
+        landmark = (ap.get("landmark") or "").strip()[:120]
+        town = (ap.get("town") or "").strip()[:60]
+        if ap:
+            if len(street) < 3:
+                raise HTTPException(400, "Enter your street / colony / area.")
+            if not door and len(landmark) < 3:
+                raise HTTPException(400, "No door number? Please give a landmark near your house (temple, school, shop).")
+            addr = ", ".join(x for x in [f"D.No {door}" if door else "No door no.", street,
+                                         f"near {landmark}" if landmark else "", town] if x)
+        else:  # v1.1 clients
+            addr = (body.get("address") or "").strip()[:300]
+            if len(addr) < 5:
+                raise HTTPException(400, "Enter house no / street / landmark.")
     else:
         if branch_id not in {b["id"] for b in catalog.get_branches()}:
             raise HTTPException(400, "Choose a pickup branch.")
@@ -127,7 +140,7 @@ def create(user: dict, body: dict) -> dict:
         "branch_id": branch_id, "items": lines, "subtotal": round(subtotal), "delivery_fee": fee, "total": total,
         "weight_kg": round(weight, 2), "fulfilment": mode, "payment_method": pay,
         "payment_status": "pending", "utr": None,
-        "address": addr, "lat": lat, "lng": lng, "distance_km": km, "eta_minutes": eta,
+        "address": addr, "address_parts": body.get("address_parts") or None, "lat": lat, "lng": lng, "distance_km": km, "eta_minutes": eta,
         "notes": (body.get("notes") or "").strip()[:200],
         "status": "placed", "history": [{"status": "placed", "ts": now}],
         "rider": None, "created": now, "updated": now, "promised_at": now + (eta or 20) * 60,
@@ -141,7 +154,7 @@ def create(user: dict, body: dict) -> dict:
     u["name"], u["email"] = name, email or u.get("email", "")
     if mode == "delivery":
         saved = [a for a in (u.get("addresses") or []) if a.get("address") != addr][:3]
-        u["addresses"] = [{"address": addr, "lat": lat, "lng": lng}] + saved
+        u["addresses"] = [{"address": addr, "parts": body.get("address_parts"), "lat": lat, "lng": lng}] + saved
     store.set_json(f"user:{user['phone']}", u)
     store.record_customer(user["phone"], name, email, order_total=total)
 

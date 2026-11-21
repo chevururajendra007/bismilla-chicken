@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.0 – 2026-11-21
+- **Smart delivery address**: town chips (Kota / Vidyanagar / other village), door no. with "No door number" option,
+  street/colony/area search that moves the map automatically (Google Geocoding if key set, else OpenStreetMap, biased to
+  Kota and cached 7 days), landmark required when there is no door number, "I am at home" GPS with reverse lookup,
+  drag-the-pin for the exact house. Orders store structured address parts; saved addresses refill everything.
+
 ## v1.2.2 – 2026-11-21
 - Hero: full live golden rooster with a playful speech bubble ("Hey! Want to taste me? 😋" / నన్ను రుచి చూడాలనుందా?).
 - Logo: rooster photo with a BC badge. Clean white product cards with net-weight chips. Full-body hen for Natu Kodi.

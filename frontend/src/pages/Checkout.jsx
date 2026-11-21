@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, cart, navigate, qtyLabel, rupee, session } from '../api'
-import MapView from '../components/MapView'
+import AddressPicker, { addressOk, emptyAddress } from '../components/AddressPicker'
 import VerifyPhone from '../components/VerifyPhone'
 
 const PAY = [
@@ -14,13 +14,12 @@ export default function Checkout({ cfg, menu, items, user }) {
   const [pay, setPay] = useState('cod')
   const [branch, setBranch] = useState('kota')
   const [loc, setLoc] = useState(null)
-  const [center, setCenter] = useState(null)
   const [quote, setQuote] = useState(null)
-  const [address, setAddress] = useState('')
+  const [addr, setAddr] = useState(emptyAddress)
+  const [jump, setJump] = useState(null)
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [locErr, setLocErr] = useState('')
   const [changing, setChanging] = useState(false)
 
   const verified = user && user.phone && !changing
@@ -43,15 +42,6 @@ export default function Checkout({ cfg, menu, items, user }) {
     api('/delivery/quote', { method: 'POST', body: { lat: loc.lat, lng: loc.lng, weight_kg: weight } }).then(setQuote).catch(() => {})
   }, [loc?.lat, loc?.lng, weight, mode])
 
-  function useMyLocation() {
-    setLocErr('')
-    if (!navigator.geolocation) return setLocErr('Location not supported on this device.')
-    navigator.geolocation.getCurrentPosition(
-      (p) => { const c = { lat: p.coords.latitude, lng: p.coords.longitude }; setLoc(c); setCenter(c) },
-      () => setLocErr('Could not get location – allow location access or drag the pin on the map.'),
-      { enableHighAccuracy: true, timeout: 10000 })
-  }
-
   async function place() {
     setErr(''); setBusy(true)
     try {
@@ -59,7 +49,8 @@ export default function Checkout({ cfg, menu, items, user }) {
       const o = await api('/orders', {
         method: 'POST', body: {
           items: lines.map((l) => ({ product_id: l.p.id, qty: l.qty })), fulfilment: mode, payment_method: pay,
-          branch_id: mode === 'pickup' ? branch : quote?.branch_id, location: loc, address,
+          branch_id: mode === 'pickup' ? branch : quote?.branch_id, location: loc,
+          address_parts: mode === 'delivery' ? { door_no: addr.no_door ? '' : addr.door_no.trim(), street: addr.street.trim(), landmark: addr.landmark.trim(), town: addr.town.trim() } : null,
           name: u?.name, email: u?.email || null, notes,
         },
       })
@@ -73,7 +64,7 @@ export default function Checkout({ cfg, menu, items, user }) {
     <div className="empty"><p>🛒 Your cart is empty.</p><button className="btn primary" onClick={() => navigate('/')}>Browse today's chicken</button></div>
   )
 
-  const locationOk = mode === 'pickup' || (loc && quote?.deliverable && address.trim().length >= 5)
+  const locationOk = mode === 'pickup' || (loc && quote?.deliverable && addressOk(addr))
   const canPlace = verified && locationOk
 
   return (
@@ -113,15 +104,10 @@ export default function Checkout({ cfg, menu, items, user }) {
         <div className="panel">
           {saved.length > 0 && (
             <div className="saved">{saved.map((a, i) => (
-              <button key={i} className="chip" onClick={() => { setLoc({ lat: a.lat, lng: a.lng }); setCenter({ lat: a.lat, lng: a.lng }); setAddress(a.address) }}>🏠 {a.address.slice(0, 32)}</button>
+              <button key={i} className="chip" onClick={() => { setLoc({ lat: a.lat, lng: a.lng }); setJump({ lat: a.lat, lng: a.lng, t: Date.now() }); if (a.parts) setAddr({ ...emptyAddress, ...a.parts, no_door: !a.parts.door_no }) }}>🏠 {a.address.slice(0, 34)}</button>
             ))}</div>
           )}
-          <button className="btn ghost block" onClick={useMyLocation}>📍 Use my current location</button>
-          {locErr && <p className="err small">{locErr}</p>}
-          <p className="muted small">Or tap / drag the pin to your house on the map.</p>
-          <MapView googleKey={cfg?.google_maps_key} center={center || (cfg?.branches?.[0])}
-            markers={(cfg?.branches || []).map((b) => ({ ...b, kind: 'shop', label: b.name }))}
-            onPick={(lat, lng) => setLoc({ lat, lng })} height={280} zoom={14} />
+          <AddressPicker cfg={cfg} value={addr} onChange={setAddr} loc={loc} onLoc={setLoc} jump={jump} />
           {quote && (
             <div className={`quote ${quote.deliverable ? 'ok' : 'no'}`}>
               <b>{quote.deliverable ? '✅' : '⚠️'} {quote.distance_km} km from {quote.branch_name}</b>
@@ -130,8 +116,6 @@ export default function Checkout({ cfg, menu, items, user }) {
               {!quote.deliverable && <button className="btn sm ghost" onClick={() => setMode('pickup')}>Switch to pickup</button>}
             </div>
           )}
-          <label>House no, street, landmark</label>
-          <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. 4-12, Gandhi street, near Ramalayam" />
         </div>
       )}
       <label>Cutting instructions (optional)</label>
@@ -174,7 +158,7 @@ export default function Checkout({ cfg, menu, items, user }) {
         {busy ? 'Placing order…' : pay === 'prepaid' ? `Place order & pay ${rupee(total)}` : `Place order · ${rupee(total)}`}
       </button>
       {!verified && <p className="muted small center">Verify your mobile number above to place the order.</p>}
-      {verified && !locationOk && mode === 'delivery' && <p className="muted small center">Pick your location and enter your address to continue.</p>}
+      {verified && !locationOk && mode === 'delivery' && <p className="muted small center">{!addressOk(addr) ? 'Enter your area and door number (or a landmark).' : 'Place the pin on your house to see delivery charges.'}</p>}
     </div>
   )
 }

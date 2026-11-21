@@ -127,3 +127,15 @@ def test_audit_and_platform():
     assert c.get("/api/admin/settings", headers=ADMIN).json()["billing"]["state"] == "due_soon"
     p = c.get("/api/platform", headers=sa).json()
     assert p["usage"]["this_month"]["orders"] >= 1
+
+
+def test_structured_address_rules():
+    h, _ = login("9123456784")
+    base = {"items": [{"product_id": "skinless-curry", "qty": 1}], "fulfilment": "delivery", "payment_method": "cod",
+            "name": "Lakshmi", "location": {"lat": KOTA[0], "lng": 80.0567}}
+    r = c.post("/api/orders", headers=h, json={**base, "address_parts": {"street": "Gandhi Nagar", "town": "Kota"}})
+    assert r.status_code == 400 and "landmark" in r.json()["detail"]
+    o = c.post("/api/orders", headers=h, json={**base, "address_parts": {"street": "Gandhi Nagar", "landmark": "Ramalayam", "town": "Kota"}}).json()
+    assert o["address"] == "No door no., Gandhi Nagar, near Ramalayam, Kota"
+    o = c.post("/api/orders", headers=h, json={**base, "address_parts": {"door_no": "4-12", "street": "Gandhi Nagar", "town": "Vidyanagar"}}).json()
+    assert o["address"].startswith("D.No 4-12, Gandhi Nagar")

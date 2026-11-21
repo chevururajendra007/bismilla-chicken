@@ -39,7 +39,7 @@ export default function MapView({ googleKey, center, markers = [], onPick, heigh
         st.map = new gm.Map(el.current, { center: c, zoom, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' })
         st.markers = []
         if (onPick) {
-          st.pin = new gm.Marker({ position: c, map: st.map, draggable: true, label: '📍' })
+          st.pin = new gm.Marker({ position: c, map: st.map, draggable: true, label: '📍', zIndex: 1000 })
           st.pin.addListener('dragend', (e) => onPick(e.latLng.lat(), e.latLng.lng()))
           st.map.addListener('click', (e) => { st.pin.setPosition(e.latLng); onPick(e.latLng.lat(), e.latLng.lng()) })
         }
@@ -54,7 +54,7 @@ export default function MapView({ googleKey, center, markers = [], onPick, heigh
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(st.map)
       st.layer = L.layerGroup().addTo(st.map)
       if (onPick) {
-        st.pin = L.marker([c0.lat, c0.lng], { draggable: true, icon: icon('pick') }).addTo(st.map)
+        st.pin = L.marker([c0.lat, c0.lng], { draggable: true, icon: icon('pick'), zIndexOffset: 1000 }).addTo(st.map)
         st.pin.on('dragend', () => { const p = st.pin.getLatLng(); onPick(p.lat, p.lng) })
         st.map.on('click', (e) => { st.pin.setLatLng(e.latlng); onPick(e.latlng.lat, e.latlng.lng) })
       }
@@ -75,14 +75,14 @@ export default function MapView({ googleKey, center, markers = [], onPick, heigh
     if (st.kind === 'l') {
       st.layer.clearLayers()
       pts.forEach((m) => L.marker([m.lat, m.lng], { icon: icon(m.kind) }).bindTooltip(m.label || '').addTo(st.layer))
-      if (pts.length >= 2) L.polyline(pts.map((m) => [m.lat, m.lng]), { color: '#B91C1C', dashArray: '6 6', weight: 3 }).addTo(st.layer)
+      if (pts.length >= 2 && !onPick) L.polyline(pts.map((m) => [m.lat, m.lng]), { color: '#B91C1C', dashArray: '6 6', weight: 3 }).addTo(st.layer)
       if (pts.length >= 2 && !onPick) st.map.fitBounds(L.latLngBounds(pts.map((m) => [m.lat, m.lng])).pad(0.3))
     } else if (st.kind === 'g') {
       const gm = window.google.maps
       ;(st.markers || []).forEach((m) => m.setMap(null))
       st.markers = pts.map((m) => new gm.Marker({ position: m, map: st.map, label: EMOJI[m.kind], title: m.label }))
       if (st.line) st.line.setMap(null)
-      if (pts.length >= 2) {
+      if (pts.length >= 2 && !onPick) {
         st.line = new gm.Polyline({ path: pts, map: st.map, strokeColor: '#B91C1C', strokeOpacity: 0.8, strokeWeight: 3 })
         if (!onPick) { const b = new gm.LatLngBounds(); pts.forEach((p) => b.extend(p)); st.map.fitBounds(b, 60) }
       }

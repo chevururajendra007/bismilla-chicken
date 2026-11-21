@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import agent
-from core import auth, catalog, config, delivery, orders, push, store
+from core import auth, catalog, config, delivery, geo, orders, push, store
 
 app = FastAPI(title="Bismilla Chicken API", version=config.APP_VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -109,6 +109,17 @@ def public_config():
 @app.get("/api/menu")
 def menu():
     return catalog.get_menu()
+
+
+@app.get("/api/geocode")
+def geocode(q: str, town: str = ""):
+    """Address -> map suggestions (biased to Kota / Vidyanagar)."""
+    return {"results": geo.search(q[:120], town[:40])}
+
+
+@app.get("/api/geocode/reverse")
+def geocode_reverse(lat: float, lng: float):
+    return geo.reverse(lat, lng)
 
 
 @app.post("/api/delivery/quote")
