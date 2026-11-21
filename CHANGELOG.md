@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.0.1 – 2026-11-21
+- Serve API from Mumbai (bom1) for lower latency in AP
+
 ## v1.0.0 – 2026-11-21
 First release.
 - Customer PWA: menu at daily paper rate, cart, delivery/pickup, map location, COD & PhonePe/UPI, live tracking, push
