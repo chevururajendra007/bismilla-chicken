@@ -50,7 +50,7 @@ def _save(o: dict, ev: str | None = None, actor: str = "", detail: dict | None =
 def _price_cart(items: list) -> tuple[list, float, float]:
     s = catalog.get_settings()
     products = {p["id"]: p for p in catalog.get_raw_products()}
-    lines, subtotal, weight = [], 0.0, 0.0
+    lines, subtotal, weight, extra = [], 0.0, 0.0, 0
     for it in items:
         p = products.get(it.get("product_id"))
         if not p or not p.get("available", True):
@@ -67,9 +67,12 @@ def _price_cart(items: list) -> tuple[list, float, float]:
         subtotal += amount
         if p["unit"] == "kg":
             weight += qty
+        else:
+            weight += qty * float(p.get("equiv_kg") or 0)  # cooked plates count toward delivery minimums
+        extra = max(extra, int(p.get("prep_extra") or 0))
     if not lines:
         raise HTTPException(400, "Cart is empty.")
-    return lines, subtotal, weight
+    return lines, subtotal, weight, extra
 
 
 def create(user: dict, body: dict) -> dict:
@@ -78,7 +81,7 @@ def create(user: dict, body: dict) -> dict:
         raise HTTPException(400, "Shop is closed right now. Please try later.")
     if not user.get("phone"):
         raise HTTPException(400, "Please verify your mobile number to order.")
-    lines, subtotal, weight = _price_cart(body.get("items") or [])
+    lines, subtotal, weight, extra = _price_cart(body.get("items") or [])
     mode = body.get("fulfilment")
     pay = body.get("payment_method")
     pay = "prepaid" if pay == "phonepe" else pay
@@ -105,7 +108,7 @@ def create(user: dict, body: dict) -> dict:
         q = delivery.quote(lat, lng, weight, branch_id)
         if not q["deliverable"]:
             raise HTTPException(400, q["reason"])
-        fee, km, eta, branch_id = q["fee"], q["distance_km"], q["eta_minutes"], q["branch_id"]
+        fee, km, eta, branch_id = q["fee"], q["distance_km"], q["eta_minutes"] + extra, q["branch_id"]
         ap = body.get("address_parts") or {}
         door = (ap.get("door_no") or "").strip()[:30]
         street = (ap.get("street") or "").strip()[:120]
@@ -125,7 +128,7 @@ def create(user: dict, body: dict) -> dict:
     else:
         if branch_id not in {b["id"] for b in catalog.get_branches()}:
             raise HTTPException(400, "Choose a pickup branch.")
-        eta = s["delivery"]["prep_minutes"]
+        eta = s["delivery"]["prep_minutes"] + extra
 
     total = round(subtotal + fee)
     cap = float(s.get("cod_max_amount") or 0)

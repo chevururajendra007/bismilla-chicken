@@ -130,6 +130,37 @@ DEFAULT_PRODUCTS = [
 ]
 
 
+
+# ---- Bismilla Kitchen: cooked chicken dishes (sample prices – owner edits them in Admin -> Rates) ----
+KITCHEN = [
+    {"id": "k-chicken-curry", "name": "Andhra Chicken Curry", "name_te": "కోడి కూర", "category": "Kitchen", "unit": "plate",
+     "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 180, "emoji": "🍛",
+     "serving": "500 ml · 6–7 pieces · serves 2", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
+     "desc": "Home-style spicy gravy, made fresh on order.", "badge": "Hot",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b7/Chicken_curry_Trivandrum.jpg/960px-Chicken_curry_Trivandrum.jpg",
+     "credit": "Photo: Abhilashsnair, CC0, Wikimedia Commons"},
+    {"id": "k-chicken-65", "name": "Chicken 65", "name_te": "చికెన్ 65", "category": "Kitchen", "unit": "plate",
+     "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 200, "emoji": "🌶️",
+     "serving": "250 g · crispy & spicy", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
+     "desc": "Deep-fried, curry-leaf tempered, restaurant style.", "badge": "Bestseller",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/Chicken_65_%28Dish%29.jpg/960px-Chicken_65_%28Dish%29.jpg",
+     "credit": "Photo: Amiyashrivastava, CC BY-SA 3.0, Wikimedia Commons"},
+    {"id": "k-liver-fry", "name": "Chicken Liver Fry", "name_te": "లివర్ ఫ్రై", "category": "Kitchen", "unit": "plate",
+     "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 150, "emoji": "🍳",
+     "serving": "250 g · pepper masala fry", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
+     "desc": "Soft liver tossed with onion, pepper and masala.",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Fried_Chicken_Liver.jpg/960px-Fried_Chicken_Liver.jpg",
+     "credit": "Photo: Kevin628, CC BY-SA 4.0, Wikimedia Commons"},
+    {"id": "k-chicken-pakoda", "name": "Chicken Pakoda", "name_te": "చికెన్ పకోడి", "category": "Kitchen", "unit": "plate",
+     "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 160, "emoji": "🍗",
+     "serving": "250 g · evening snack", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
+     "desc": "Crunchy boneless fritters with onion & chilli.",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG/960px-Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG",
+     "credit": "Photo: Biswarup Ganguly, CC BY 3.0, Wikimedia Commons"},
+]
+DEFAULT_PRODUCTS = DEFAULT_PRODUCTS + KITCHEN
+
+
 def today_ist() -> str:
     return datetime.now(IST).strftime("%Y-%m-%d")
 
@@ -189,6 +220,12 @@ def get_raw_products() -> list:
         if "1761284827145-06ea2fe270bd" in (x.get("image") or ""):
             x["image"] = IMG("1759211321222-09f769570583")
             store.set_json("products", p)
+    # v1.4: add any new default products (e.g. Bismilla Kitchen dishes) without touching the owner's edits
+    have = {x["id"] for x in p}
+    missing = [d for d in DEFAULT_PRODUCTS if d["id"] not in have]
+    if missing:
+        p = p + missing
+        store.set_json("products", p)
     # v1.3.1: real raw-chicken photos for legs / wings / liver where no owner photo exists yet
     changed = False
     for x in p:

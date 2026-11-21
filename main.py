@@ -40,7 +40,7 @@ class SubReq(BaseModel):
     notes: str = ""
 
 
-class QuoteReq(BaseModel):
+class QuoteReq(BaseModel):  # weight_kg includes cooked plates (0.5 kg each)
     lat: float
     lng: float
     weight_kg: float = 1
@@ -244,7 +244,7 @@ def admin_rate_hist(admin: dict = Depends(auth.require_admin)):
 @app.put("/api/admin/products")
 def admin_products(products: list[dict], admin: dict = Depends(auth.require_admin)):
     allowed = {"id", "name", "name_te", "category", "unit", "pricing", "basis", "multiplier", "offset", "manual_price",
-               "emoji", "available", "desc", "image", "badge", "credit"}
+               "emoji", "available", "desc", "image", "badge", "credit", "serving", "equiv_kg", "prep_extra"}
     clean = []
     for p in products:
         if not p.get("id") or not p.get("name"):

@@ -140,3 +140,16 @@ def test_structured_address_rules():
     assert o["address"] == "No door no., Gandhi Nagar, near Ramalayam, Kota"
     o = c.post("/api/orders", headers=h, json={**base, "address_parts": {"door_no": "4-12", "street": "Gandhi Nagar", "town": "Vidyanagar"}}).json()
     assert o["address"].startswith("D.No 4-12, Gandhi Nagar")
+
+
+def test_kitchen_dishes():
+    m = c.get("/api/menu").json()
+    k = {x["id"]: x for x in m["products"] if x["category"] == "Kitchen"}
+    assert set(k) == {"k-chicken-curry", "k-chicken-65", "k-liver-fry", "k-chicken-pakoda"}
+    assert all(x["image"] and x["unit"] == "plate" for x in k.values())
+    h, _ = login("9123456785")
+    o = c.post("/api/orders", headers=h, json={"items": [{"product_id": "k-chicken-65", "qty": 2}], "fulfilment": "delivery",
+               "payment_method": "cod", "name": "Ravi", "location": {"lat": KOTA[0], "lng": 80.0567},
+               "address_parts": {"door_no": "1-2", "street": "Main Road", "town": "Kota"}}).json()
+    assert o["total"] == 2 * k["k-chicken-65"]["price"] and o["weight_kg"] == 1.0
+    assert o["eta_minutes"] >= 35  # cooking time added

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.4.0"
 
 SHOP_NAME = os.getenv("SHOP_NAME", "Bismilla Chicken")
 SHOP_PHONE = os.getenv("SHOP_PHONE", "7904711708")

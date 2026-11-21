@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4.0 – 2026-11-21
+- **Bismilla Kitchen – Hot & Ready**: separate section for cooked dishes – Andhra Chicken Curry ₹180, Chicken 65 ₹200,
+  Chicken Liver Fry ₹150, Chicken Pakoda ₹160 per plate (sample prices, owner edits them). Real dish photos (credited
+  Wikimedia Commons), serving size chips, +20 min cooking time added to ETA, plates count 0.5 kg toward delivery rules.
+
 ## v1.3.1 – 2026-11-21
 - Real raw-chicken photos for Leg Pieces, Wings and Liver & Gizzard (Wikimedia Commons, credited on the card as the licences require). Owner uploads replace them.
 

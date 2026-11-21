@@ -302,3 +302,12 @@ nav { display: flex; gap: 6px; }
 .pin-hint { text-align: center; font-size: 13px; font-weight: 700; color: var(--ruby-600); margin: 2px 0 8px; }
 @media (max-width: 760px) { .addr-grid { grid-template-columns: 1fr; gap: 0; } }
 .credit { position: absolute; left: 8px; bottom: 6px; z-index: 1; max-width: 60%; font-size: 8.5px; line-height: 1.2; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+/* Bismilla Kitchen (v1.4) */
+.kitchen { margin: 34px -8px 10px; padding: 22px 8px 18px; border-radius: 30px; scroll-margin-top: 90px;
+  background: radial-gradient(600px 300px at 90% 0%, rgba(255,159,28,.35), transparent 70%), linear-gradient(160deg, rgba(0,0,0,.35), rgba(255,77,109,.12));
+  border: 1px solid rgba(255,207,74,.35); box-shadow: inset 0 1px 0 rgba(255,255,255,.15); }
+.kitchen-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 0 6px 12px; }
+.kitchen-head .te { color: var(--gold-2); margin: 0; font-size: 17px; }
+.kitchen-note { margin: 0; font-size: 13px; color: var(--gold-2); max-width: 300px; }
+.kitchen .card2 { box-shadow: 0 0 0 1px rgba(255,207,74,.5), 0 18px 40px rgba(0,0,0,.35); }
+.kitchen .netwt { background: #fff7e0; color: #9a3412; }

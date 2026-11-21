@@ -15,11 +15,46 @@ function HeroImg() {
   return bad ? <div className="hero-fallback">🍗</div> : <img src={HERO_IMG} alt="Live country rooster" onError={() => setBad(true)} />
 }
 
+function Card({ p, q }) {
+          const step = STEP[p.unit] || 1
+          return (
+            <article className={`card2 ${p.available ? '' : 'off'} ${q ? 'in' : ''}`}>
+              <div className="card-img">
+                <Photo src={p.image} emoji={p.emoji} alt={p.name} />
+                {p.badge && <span className="badge">{p.badge}</span>}
+                {p.credit && <span className="credit">{p.credit}</span>}
+                {p.pricing !== 'manual' && <span className="basis">{p.basis === 'live' ? 'Live rate' : 'Broiler rate'}</span>}
+              </div>
+              <div className="card-body">
+                <h3>{p.name}</h3>
+                <p className="te small">{p.name_te}</p>
+                <p className="muted small desc">{p.desc}</p>
+                <p className="netwt">{p.serving || (p.unit === 'kg' ? (p.category === 'Live' || p.category === 'Country' ? 'Live weight · per kg' : 'Net wt 1 kg · Fresh cut') : 'Tray of 30')}</p>
+                <div className="price-row">
+                  <b>{rupee(p.price)}<small>/{p.unit}</small></b>
+                  {!p.available ? <span className="tag">Sold out</span> : q === 0 ? (
+                    <button className="btn primary sm add" onClick={() => cart.set(p.id, 1)}>ADD +</button>
+                  ) : (
+                    <div className="stepper">
+                      <button onClick={() => cart.set(p.id, q - step)}>−</button>
+                      <span>{qtyLabel(q, p.unit)}</span>
+                      <button onClick={() => cart.set(p.id, q + step)}>+</button>
+                    </div>
+                  )}
+                </div>
+                {q > 0 && <p className="line-total">{rupee(p.price * q)}</p>}
+              </div>
+            </article>
+          )
+        }
+
 export default function Home({ menu, cfg, items }) {
   const [cat, setCat] = useState('All')
   if (!menu) return <div className="loading light">Loading today's rates…</div>
-  const cats = ['All', ...new Set(menu.products.map((p) => p.category))]
-  const list = menu.products.filter((p) => cat === 'All' || p.category === cat)
+  const raw = menu.products.filter((p) => p.category !== 'Kitchen')
+  const kitchen = menu.products.filter((p) => p.category === 'Kitchen')
+  const cats = ['All', ...new Set(raw.map((p) => p.category))]
+  const list = raw.filter((p) => cat === 'All' || p.category === cat)
   const d = cfg?.delivery
   const phone = cfg?.shop_phone || '7904711708'
   const rates = menu.rates || { live: menu.paper_rate, broiler: menu.paper_rate }
@@ -48,7 +83,8 @@ export default function Home({ menu, cfg, items }) {
           </p>
 
           <div className="hero-cta">
-            <a href="#menu" className="btn shine big">🛒 Order now</a>
+            <a href="#menu" className="btn shine big">🛒 Order fresh chicken</a>
+            <a href="#kitchen" className="btn glass big">🍛 Hot curries</a>
             <a href={`https://wa.me/91${phone}?text=${encodeURIComponent('Hi Bismilla Chicken, I want to order')}`} className="btn glass big" target="_blank" rel="noreferrer">WhatsApp</a>
           </div>
         </div>
@@ -84,40 +120,22 @@ export default function Home({ menu, cfg, items }) {
       </section>
 
       <section className="grid">
-        {list.map((p) => {
-          const q = items[p.id] || 0
-          const step = STEP[p.unit] || 1
-          return (
-            <article key={p.id} className={`card2 ${p.available ? '' : 'off'} ${q ? 'in' : ''}`}>
-              <div className="card-img">
-                <Photo src={p.image} emoji={p.emoji} alt={p.name} />
-                {p.badge && <span className="badge">{p.badge}</span>}
-                {p.credit && <span className="credit">{p.credit}</span>}
-                {p.pricing !== 'manual' && <span className="basis">{p.basis === 'live' ? 'Live rate' : 'Broiler rate'}</span>}
-              </div>
-              <div className="card-body">
-                <h3>{p.name}</h3>
-                <p className="te small">{p.name_te}</p>
-                <p className="muted small desc">{p.desc}</p>
-                <p className="netwt">{p.unit === 'kg' ? (p.category === 'Live' || p.category === 'Country' ? 'Live weight · per kg' : 'Net wt 1 kg · Fresh cut') : 'Tray of 30'}</p>
-                <div className="price-row">
-                  <b>{rupee(p.price)}<small>/{p.unit}</small></b>
-                  {!p.available ? <span className="tag">Sold out</span> : q === 0 ? (
-                    <button className="btn primary sm add" onClick={() => cart.set(p.id, 1)}>ADD +</button>
-                  ) : (
-                    <div className="stepper">
-                      <button onClick={() => cart.set(p.id, q - step)}>−</button>
-                      <span>{qtyLabel(q, p.unit)}</span>
-                      <button onClick={() => cart.set(p.id, q + step)}>+</button>
-                    </div>
-                  )}
-                </div>
-                {q > 0 && <p className="line-total">{rupee(p.price * q)}</p>}
-              </div>
-            </article>
-          )
-        })}
+        {list.map((p) => <Card key={p.id} p={p} q={items[p.id] || 0} />)}
       </section>
+
+      {kitchen.length > 0 && (
+        <section id="kitchen" className="kitchen">
+          <div className="kitchen-head">
+            <div>
+              <span className="pill">🔥 Cooked fresh on order</span>
+              <h2>Bismilla Kitchen <span className="grad-text">– Hot &amp; Ready</span></h2>
+              <p className="te">వేడి వేడి కోడి కూర, చికెన్ 65, పకోడి – ఇంటికే</p>
+            </div>
+            <p className="kitchen-note">Made with the same fresh chicken · ready in ~{(cfg?.delivery?.prep_minutes || 15) + 20} min · delivered hot</p>
+          </div>
+          <div className="grid">{kitchen.map((p) => <Card key={p.id} p={p} q={items[p.id] || 0} />)}</div>
+        </section>
+      )}
 
       <section className="trust">
         <div>🧼<b>Hygienic</b><small>Cleaned & packed fresh</small></div>
