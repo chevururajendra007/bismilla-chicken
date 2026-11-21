@@ -25,7 +25,7 @@ DEFAULT_SETTINGS = {
     "rates": {"live": 220, "broiler": 280},
     "paper_rate": 220,               # kept for v1.0/1.1 compatibility (= live rate)
     "paper_rate_date": None,          # YYYY-MM-DD (IST) when last updated
-    "catalog_version": 2,
+    "catalog_version": 3,
     "rate_mode": "paper",            # "paper" = auto from paper rate, "manual" = per-product prices only
     "delivery": {
         "free_radius_km": 3.0,        # free door delivery up to this distance
@@ -101,15 +101,15 @@ DEFAULT_PRODUCTS = [
      "desc": "Breast & thigh boneless cubes – biryani, 65, kebab."},
     {"id": "legs", "name": "Chicken Leg Pieces", "name_te": "లెగ్ పీసెస్",
      "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 1.15, "offset": 0,
-     "manual_price": 320, "image": IMG("1682991136736-a2b44623eeba"), "emoji": "🍗", "available": True,
+     "manual_price": 320, "image": "", "emoji": "🍗", "available": True,
      "desc": "Drumsticks + thighs. Great for fry & tandoori."},
     {"id": "wings", "name": "Chicken Wings", "name_te": "చికెన్ వింగ్స్",
      "category": "Broiler", "unit": "kg", "pricing": "paper", "basis": "broiler", "multiplier": 0.95, "offset": 0,
-     "manual_price": 266, "image": IMG("1527477396000-e27163b481c2"), "emoji": "🍗", "available": True,
+     "manual_price": 266, "image": "", "emoji": "🍗", "available": True,
      "desc": "Fresh wings for fry & lollipop."},
     {"id": "liver-gizzard", "name": "Liver & Gizzard", "name_te": "లివర్ & గిజర్డ్",
      "category": "Broiler", "unit": "kg", "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0,
-     "manual_price": 190, "image": IMG("1600180786608-28d06391d25c"), "emoji": "🫀", "available": True,
+     "manual_price": 190, "image": "", "emoji": "🫀", "available": True,
      "desc": "Cleaned liver and gizzard."},
     {"id": "natu-kodi", "name": "Natu Kodi (Country Chicken)", "name_te": "నాటు కోడి",
      "category": "Country", "unit": "kg", "pricing": "manual", "basis": "live", "multiplier": 1.0, "offset": 0,
@@ -175,10 +175,18 @@ def get_raw_products() -> list:
         p = [{**d, "available": old.get(d["id"], {}).get("available", True)} for d in DEFAULT_PRODUCTS]
         store.set_json("products", p)
         s = get_settings()
+        s["catalog_version"] = 3
         if not (store.get_json("settings") or {}).get("rates"):
             s["rates"] = dict(DEFAULT_SETTINGS["rates"])
             s["paper_rate"] = s["rates"]["live"]
             save_settings(s)
+    # v1.2.1: stock photos that did not match the product (legs/wings/liver) -> photo placeholder
+    bad = ("1682991136736-a2b44623eeba", "1527477396000-e27163b481c2", "1600180786608-28d06391d25c")
+    if any(any(b in (x.get("image") or "") for b in bad) for x in p):
+        for x in p:
+            if any(b in (x.get("image") or "") for b in bad):
+                x["image"] = ""
+        store.set_json("products", p)
     return p
 
 

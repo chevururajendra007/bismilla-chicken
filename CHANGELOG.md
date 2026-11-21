@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.2.1 – 2026-11-21
+- Removed 3 stock photos that did not match the product (leg pieces, wings, liver) – "shop photo coming soon" tile until the owner uploads his own.
+
 ## v1.2.0 – 2026-11-21
 - **Two Nellore paper rates**: Live (లైవ్) and Broiler/skinless (స్కిన్‌లెస్). Each product is linked to one rate
   (× multiplier + offset) or a manual price. Defaults: Live ₹220, Broiler ₹280 (latest public Nellore rates found);

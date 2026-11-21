@@ -132,7 +132,10 @@ nav { display: flex; gap: 6px; }
 .card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
 .card2:hover .card-img img { transform: scale(1.06); }
 .card-img::after { content: ""; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent, rgba(42,5,9,.45)); }
-.ph-fallback { display: grid; place-items: center; height: 100%; font-size: 64px; }
+.ph-fallback { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 4px;
+  background: radial-gradient(circle at 30% 25%, #fff3df, #f6c98f 55%, #e59a5a); }
+.ph-fallback span { font-size: 64px; filter: drop-shadow(0 8px 12px rgba(74,11,20,.3)); }
+.ph-fallback small { font-size: 11px; font-weight: 700; color: var(--ruby-700); text-transform: uppercase; letter-spacing: .06em; }
 .badge { position: absolute; top: 10px; left: 10px; z-index: 1; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
   background: linear-gradient(135deg, var(--gold), var(--saffron)); color: #3a0710; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .basis { position: absolute; bottom: 10px; right: 10px; z-index: 1; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; background: rgba(42,5,9,.6); backdrop-filter: blur(6px); }

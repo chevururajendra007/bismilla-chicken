@@ -6,7 +6,7 @@ const HERO_IMG = 'https://images.unsplash.com/photo-1672787153720-e85fe802fd9f?a
 
 function Photo({ src, emoji, alt }) {
   const [bad, setBad] = useState(false)
-  if (!src || bad) return <div className="ph-fallback">{emoji || '🍗'}</div>
+  if (!src || bad) return <div className="ph-fallback"><span>{emoji || '🍗'}</span><small>Shop photo coming soon</small></div>
   return <img src={src} alt={alt} loading="lazy" onError={() => setBad(true)} />
 }
 
