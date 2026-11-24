@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.6.0 – 2026-11-24
+- **Phone-hang fix** (see docs/INCIDENT-2026-11-24-phone-hang.md): removed blur/backdrop/fixed-background/endless animations,
+  automatic Lite mode for budget phones, right-sized photos (2.1 MB page → much lighter), fewer font weights.
+- **Security**: strict Content-Security-Policy + nosniff + no framing + Permissions-Policy; inline script moved to /boot.js;
+  upgraded FastAPI/Starlette, python-dotenv, PyJWT, pywebpush, psycopg, Vite 8 (0 known vulnerabilities).
+- **Evals**: tests/test_phone_safety.py (5 release gates) and scripts/perf_eval.py (budget-phone CPU budget).
+
 ## v1.5.0 – 2026-11-21
 - **Separate "BC Admin" app**: /admin installs as its own home-screen app (own manifest, gold BC ADMIN icon, scope /admin).
 - The shop app shows **no admin button anywhere**, even on the owner's phone. Admin dashboard reachable only at /admin.

@@ -77,13 +77,13 @@ DEFAULT_BRANCHES = [
 ]
 
 # Real photos of raw chicken from Wikimedia Commons (licence requires the credit line shown on the card)
-COMMONS = {'legs': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Raw_leg_chicken_quarters.jpg/960px-Raw_leg_chicken_quarters.jpg', 'Photo: Baoothersks, CC BY-SA 4.0, Wikimedia Commons'), 'wings': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Raw_chicken_wings.jpg/960px-Raw_chicken_wings.jpg', 'Photo: ProjectManhattan, CC BY-SA 3.0, Wikimedia Commons'), 'liver-gizzard': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/Chicken_Liver_and_Gizzard_-_Howrah_2015-04-19_8195.JPG/960px-Chicken_Liver_and_Gizzard_-_Howrah_2015-04-19_8195.JPG', 'Photo: Biswarup Ganguly, CC BY 3.0, Wikimedia Commons')}
+COMMONS = {'legs': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dc/Raw_leg_chicken_quarters.jpg/500px-Raw_leg_chicken_quarters.jpg', 'Photo: Baoothersks, CC BY-SA 4.0, Wikimedia Commons'), 'wings': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Raw_chicken_wings.jpg/500px-Raw_chicken_wings.jpg', 'Photo: ProjectManhattan, CC BY-SA 3.0, Wikimedia Commons'), 'liver-gizzard': ('https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/Chicken_Liver_and_Gizzard_-_Howrah_2015-04-19_8195.JPG/500px-Chicken_Liver_and_Gizzard_-_Howrah_2015-04-19_8195.JPG', 'Photo: Biswarup Ganguly, CC BY 3.0, Wikimedia Commons')}
 
 
 # Free photos (Unsplash License) as placeholders – the owner can replace each with his own shop photo
 # from Admin -> Rates -> 📷. multiplier/offset are starting points the owner tunes.
 def IMG(pid: str) -> str:
-    return f"https://images.unsplash.com/photo-{pid}?auto=format&fit=crop&w=640&q=70"
+    return f"https://images.unsplash.com/photo-{pid}?auto=format&fit=crop&w=480&h=360&q=60"
 
 
 DEFAULT_PRODUCTS = [
@@ -137,25 +137,25 @@ KITCHEN = [
      "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 180, "emoji": "🍛",
      "serving": "500 ml · 6–7 pieces · serves 2", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
      "desc": "Home-style spicy gravy, made fresh on order.", "badge": "Hot",
-     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b7/Chicken_curry_Trivandrum.jpg/960px-Chicken_curry_Trivandrum.jpg",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b7/Chicken_curry_Trivandrum.jpg/500px-Chicken_curry_Trivandrum.jpg",
      "credit": "Photo: Abhilashsnair, CC0, Wikimedia Commons"},
     {"id": "k-chicken-65", "name": "Chicken 65", "name_te": "చికెన్ 65", "category": "Kitchen", "unit": "plate",
      "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 200, "emoji": "🌶️",
      "serving": "250 g · crispy & spicy", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
      "desc": "Deep-fried, curry-leaf tempered, restaurant style.", "badge": "Bestseller",
-     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/Chicken_65_%28Dish%29.jpg/960px-Chicken_65_%28Dish%29.jpg",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/Chicken_65_%28Dish%29.jpg/500px-Chicken_65_%28Dish%29.jpg",
      "credit": "Photo: Amiyashrivastava, CC BY-SA 3.0, Wikimedia Commons"},
     {"id": "k-liver-fry", "name": "Chicken Liver Fry", "name_te": "లివర్ ఫ్రై", "category": "Kitchen", "unit": "plate",
      "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 150, "emoji": "🍳",
      "serving": "250 g · pepper masala fry", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
      "desc": "Soft liver tossed with onion, pepper and masala.",
-     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Fried_Chicken_Liver.jpg/960px-Fried_Chicken_Liver.jpg",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Fried_Chicken_Liver.jpg/500px-Fried_Chicken_Liver.jpg",
      "credit": "Photo: Kevin628, CC BY-SA 4.0, Wikimedia Commons"},
     {"id": "k-chicken-pakoda", "name": "Chicken Pakoda", "name_te": "చికెన్ పకోడి", "category": "Kitchen", "unit": "plate",
      "pricing": "manual", "basis": "broiler", "multiplier": 1.0, "offset": 0, "manual_price": 160, "emoji": "🍗",
      "serving": "250 g · evening snack", "equiv_kg": 0.5, "prep_extra": 20, "available": True,
      "desc": "Crunchy boneless fritters with onion & chilli.",
-     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG/960px-Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG",
+     "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c7/Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG/500px-Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG",
      "credit": "Photo: Biswarup Ganguly, CC BY 3.0, Wikimedia Commons"},
 ]
 DEFAULT_PRODUCTS = DEFAULT_PRODUCTS + KITCHEN
@@ -225,6 +225,15 @@ def get_raw_products() -> list:
         if "1761284827145-06ea2fe270bd" in (x.get("image") or ""):
             x["image"] = IMG("1759211321222-09f769570583")
             store.set_json("products", p)
+    # v1.6: right-size stored photo URLs (960px Wikimedia / 640px Unsplash were ~3x bigger than shown)
+    slim = False
+    for x in p:
+        im = x.get("image") or ""
+        new = im.replace("/960px-", "/500px-").replace("auto=format&fit=crop&w=640&q=70", "auto=format&fit=crop&w=480&h=360&q=60")
+        if new != im:
+            x["image"], slim = new, True
+    if slim:
+        store.set_json("products", p)
     # v1.4: add any new default products (e.g. Bismilla Kitchen dishes) without touching the owner's edits
     have = {x["id"] for x in p}
     missing = [d for d in DEFAULT_PRODUCTS if d["id"] not in have]
