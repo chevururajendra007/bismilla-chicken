@@ -14,13 +14,19 @@ export default function Track({ code, cfg, requireLogin }) {
   const [qr, setQr] = useState('')
   const timer = useRef(null)
 
-  const load = () => api(`/orders/${code}`).then((x) => { setO(x); setErr('') }).catch((e) => setErr(e.message))
+  const load = () => api(`/orders/${code}`).then((x) => {
+    setO(x); setErr('')
+    if (['delivered', 'picked_up', 'cancelled'].includes(x.status)) clearInterval(timer.current)
+  }).catch((e) => setErr(e.message))
 
   useEffect(() => {
     if (!session.token) { requireLogin('Verify your mobile to see this order', load); return }
     load()
-    timer.current = setInterval(load, 10000) // live tracking: poll every 10 s
-    return () => clearInterval(timer.current)
+    // live tracking: refresh every 15 s, only while the app is on screen (saves battery & data)
+    timer.current = setInterval(() => { if (document.visibilityState === 'visible') load() }, 15000)
+    const onShow = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onShow)
+    return () => { clearInterval(timer.current); document.removeEventListener('visibilitychange', onShow) }
   }, [code]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (o?.upi_link) QRCode.toDataURL(o.upi_link, { width: 220, margin: 1 }).then(setQr) }, [o?.upi_link])

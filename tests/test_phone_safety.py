@@ -43,7 +43,8 @@ def test_css_is_light_for_budget_phones():
     assert "backdrop-filter" not in css
     assert "filter: blur" not in css
     assert "background-attachment: fixed" not in css
-    assert css.count("infinite") <= 2, "endless animations drain weak phones"
+    assert css.count("infinite") == 0 and "@keyframes" not in css, "no animations at all (v1.7 light for every phone)"
+    assert "content-visibility" not in css, "measured: content-visibility made scrolling 10x more expensive here"
     assert "html.lite" in css
 
 
@@ -52,3 +53,32 @@ def test_product_photos_are_right_sized():
     for p in DEFAULT_PRODUCTS:
         img = p.get("image") or ""
         assert "/960px-" not in img and "w=640" not in img, p["id"]
+
+
+def test_no_web_fonts_downloaded():
+    html = (FE / "index.html").read_text()
+    css = (FE / "src" / "styles.css").read_text()
+    assert "fonts.googleapis" not in html and "@font-face" not in css, "use the phone's own fonts"
+
+
+def test_heavy_screens_load_on_demand():
+    app = (FE / "src" / "App.jsx").read_text()
+    for page in ("Admin", "Checkout", "Track", "Chat", "VerifyPhone"):
+        assert f"lazy(() => import('./" in app and f"{page} = lazy(" in app, f"{page} must be lazy-loaded"
+    assert "react: 'preact/compat'" in (FE / "vite.config.js").read_text(), "Preact keeps the first download small"
+
+
+def test_first_download_is_small():
+    dist = FE / "dist" / "assets"
+    if not dist.exists():
+        return  # build not present in this environment
+    html = (FE / "dist" / "index.html").read_text()
+    entry = re.search(r'src="/assets/(index-[^"]+\.js)"', html).group(1)
+    size_kb = (dist / entry).stat().st_size / 1024
+    assert size_kb <= 60, f"home page JS is {size_kb:.0f} KB (budget 60 KB)"
+
+
+def test_polling_pauses_in_background():
+    for f in ("Track.jsx", "Admin.jsx"):
+        src = (FE / "src" / "pages" / f).read_text()
+        assert "visibilityState" in src, f"{f} must stop refreshing when the phone screen is off"

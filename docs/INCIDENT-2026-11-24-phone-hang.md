@@ -51,3 +51,12 @@ scary warnings, or a wrong/look-alike link. If the customer "installed" our app,
 2. Play Store → profile → **Play Protect → Scan**. Remove unknown "cleaner/booster/antivirus" apps.
 3. Delete unknown files in Downloads; don't open APK files.
 4. Send a screenshot of the warning / file names if it happens again.
+
+## Follow-up – v1.7.0 "light for every phone" (same day)
+| Measure (budget phone, 6× slower CPU) | v1.5.0 | v1.6.0 | **v1.7.0** |
+|---|---|---|---|
+| CPU busy while browsing (7 s) | 2,364 ms | 57 ms (lite) / 1,451 ms (mid-range) | **30 ms / 33 ms** |
+| Endless animations | 6 | 0–1 | **0** |
+| Home-page JavaScript | 386 KB | 386 KB | **42 KB** |
+| Web fonts | 2 families | 2 families | **none** |
+Release gates now: `pytest` (21 tests incl. 9 phone-safety), `scripts/perf_eval.py`, `scripts/e2e_journeys.py` (16/16).

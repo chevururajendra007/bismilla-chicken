@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.7.0 – 2026-11-24
+- **Light version for every phone**: Preact instead of React and on-demand screens (home JS 386 KB → 42 KB),
+  no animations at all, no web-font download (phone fonts incl. Telugu), smaller photos (330 px / 400 px),
+  live tracking and admin refresh pause when the app is in the background and stop after delivery.
+- **Evals**: 9 phone-safety gates in tests/test_phone_safety.py, scripts/perf_eval.py budget tightened to 300 ms
+  busy / 0 animations, new scripts/e2e_journeys.py (16 customer + owner journeys on a throttled budget phone).
+
 ## v1.6.0 – 2026-11-24
 - **Phone-hang fix** (see docs/INCIDENT-2026-11-24-phone-hang.md): removed blur/backdrop/fixed-background/endless animations,
   automatic Lite mode for budget phones, right-sized photos (2.1 MB page → much lighter), fewer font weights.

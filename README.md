@@ -1,4 +1,4 @@
-# Bismilla Chicken – Online Ordering App (v1.6.0)
+# Bismilla Chicken – Online Ordering App (v1.7.0)
 
 Fresh chicken ordering for **Bismilla Chicken**, Kota (opp. Extra Mart) & Vidyanagar, Andhra Pradesh.
 Customers order from mobile, tablet or desktop (installable PWA). The owner manages the daily **paper rate**, orders, payments and deliveries from the same app after logging in with **mobile OTP**.
@@ -64,6 +64,14 @@ from Neon's SQL editor, e.g.:
 ```sql
 SELECT date_trunc('day', created_at AT TIME ZONE 'Asia/Kolkata') d, count(*), sum(total)
 FROM orders WHERE status <> 'cancelled' GROUP BY 1 ORDER BY 1 DESC;
+```
+
+## Release checks (run before every push)
+```bash
+pytest -q                                   # API + 9 phone-safety gates
+cd frontend && npm run build && npx vite preview --port 4173 &   # with uvicorn main:app on :8000
+python scripts/perf_eval.py http://localhost:4173/      # budget & mid-range phone CPU budget
+python scripts/e2e_journeys.py http://localhost:4173    # 16 customer + owner journeys
 ```
 
 ## Run locally

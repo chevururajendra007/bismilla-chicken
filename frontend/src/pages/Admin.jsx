@@ -282,7 +282,13 @@ function OrdersTab({ cfg }) {
     setData(d)
   }).catch(() => {})
 
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t) }, [active]) // eslint-disable-line
+  useEffect(() => {
+    load()
+    const t = setInterval(() => { if (document.visibilityState === 'visible') load() }, 15000)
+    const onShow = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onShow)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onShow) }
+  }, [active]) // eslint-disable-line
   useEffect(() => () => watch.current != null && navigator.geolocation.clearWatch(watch.current), [])
 
   async function act(code, status) {

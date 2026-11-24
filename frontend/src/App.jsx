@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { api, cart, enablePush, navigate, session, subscribe } from './api'
-import Chat from './components/Chat'
 import { clerkSignOut } from './components/clerk'
-import VerifyPhone from './components/VerifyPhone'
-import Admin from './pages/Admin'
-import Checkout from './pages/Checkout'
 import Home from './pages/Home'
-import Orders from './pages/Orders'
-import Track from './pages/Track'
+
+// Only the home page ships in the first download; everything else loads when opened (keeps phones light).
+const VerifyPhone = lazy(() => import('./components/VerifyPhone'))
+const Chat = lazy(() => import('./components/Chat'))
+const Admin = lazy(() => import('./pages/Admin'))
+const Checkout = lazy(() => import('./pages/Checkout'))
+const Orders = lazy(() => import('./pages/Orders'))
+const Track = lazy(() => import('./pages/Track'))
+const Wait = () => <div className="loading">Loading…</div>
 
 function usePath() {
   const [p, setP] = useState(window.location.pathname + window.location.search)
@@ -31,6 +34,7 @@ export default function App() {
   const [cfg, setCfg] = useState(null)
   const [menu, setMenu] = useState(null)
   const [login, setLogin] = useState(null) // {title, then}
+  const [chatOn, setChatOn] = useState(false)
   const [installEvt, setInstallEvt] = useState(null)
   const [updateReady, setUpdateReady] = useState(null)
   const [pushState, setPushState] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
@@ -50,7 +54,7 @@ export default function App() {
             if (nw.state === 'installed' && navigator.serviceWorker.controller) setUpdateReady(nw)
           })
         })
-        setInterval(() => reg.update(), 30 * 60 * 1000)
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update() })
       }).catch(() => {})
       let reloaded = false
       navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; window.location.reload() } })
@@ -84,7 +88,7 @@ export default function App() {
     <div className="app">
       <header className="top">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
-          <span className="logo"><img src="https://images.unsplash.com/photo-1759211321056-723146eb120e?auto=format&fit=crop&w=160&h=160&crop=faces&q=70" alt="" onError={(e) => { e.currentTarget.src = '/icons/icon-192.png' }} /><i>BC</i></span> <span>Bismilla <b>Chicken</b></span>
+          <span className="logo"><img src="https://images.unsplash.com/photo-1759211321056-723146eb120e?auto=format&fit=crop&w=96&h=96&crop=faces&q=60" alt="" onError={(e) => { e.currentTarget.src = '/icons/icon-192.png' }} /><i>BC</i></span> <span>Bismilla <b>Chicken</b></span>
         </a>
         <nav>
           {installEvt && <button className="btn ghost sm" onClick={async () => { installEvt.prompt(); await installEvt.userChoice; setInstallEvt(null) }}>⬇ Install</button>}
@@ -104,7 +108,7 @@ export default function App() {
         </div>
       )}
 
-      <main className={route === '/' ? 'home' : 'sheet'}>{page}</main>
+      <main className={route === '/' ? 'home' : 'sheet'}><Suspense fallback={<Wait />}>{page}</Suspense></main>
 
       {count > 0 && route !== '/checkout' && route !== '/admin' && (
         <button className="cart-bar" onClick={() => navigate('/checkout')}>
@@ -112,7 +116,9 @@ export default function App() {
         </button>
       )}
 
-      {route !== '/admin' && <Chat />}
+      {route !== '/admin' && (chatOn
+        ? <Suspense fallback={null}><Chat startOpen /></Suspense>
+        : <button className="chat-fab" onClick={() => setChatOn(true)} aria-label="Chat">💬</button>)}
 
       <footer className="foot">
         <p>Bismilla Chicken · Opp. Extra Mart, Kota & Vidyanagar · 📞 <a href={`tel:${cfg?.shop_phone || '7904711708'}`}>{cfg?.shop_phone || '7904711708'}</a></p>
@@ -127,8 +133,8 @@ export default function App() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button className="x" onClick={() => setLogin(null)} aria-label="Close">×</button>
             <h3>{login.title}</h3>
-            <VerifyPhone compact askEmail={false} askName={false}
-              onVerified={(u) => { setLogin(null); login.then?.(u); if (cfg?.vapid_public_key && window.Notification?.permission === 'default') turnOnPush() }} />
+            <Suspense fallback={<Wait />}><VerifyPhone compact askEmail={false} askName={false}
+              onVerified={(u) => { setLogin(null); login.then?.(u); if (cfg?.vapid_public_key && window.Notification?.permission === 'default') turnOnPush() }} /></Suspense>
           </div>
         </div>
       )}

@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { cart, navigate, qtyLabel, rupee } from '../api'
 
 const STEP = { kg: 0.5, tray: 1, piece: 1 }
-const HERO_IMG = 'https://images.unsplash.com/photo-1774569445732-accb057692c5?auto=format&fit=crop&w=600&h=750&q=65'
+const HERO_IMG = 'https://images.unsplash.com/photo-1774569445732-accb057692c5?auto=format&fit=crop&w=480&h=600&q=60'
 
 function Photo({ src, emoji, alt }) {
   const [bad, setBad] = useState(false)
   if (!src || bad) return <div className="ph-fallback"><span>{emoji || '🍗'}</span><small>Shop photo coming soon</small></div>
-  return <img src={src} alt={alt} loading="lazy" decoding="async" width="480" height="360" onError={() => setBad(true)} />
+  return <img src={src} alt={alt} loading="lazy" decoding="async" width="400" height="300" onError={() => setBad(true)} />
 }
 
 function HeroImg() {
   const [bad, setBad] = useState(false)
-  return bad ? <div className="hero-fallback">🍗</div> : <img src={HERO_IMG} alt="Live country rooster" width="600" height="750" fetchpriority="high" decoding="async" onError={() => setBad(true)} />
+  return bad ? <div className="hero-fallback">🍗</div> : <img src={HERO_IMG} alt="Live country rooster" width="480" height="600" fetchpriority="high" decoding="async" onError={() => setBad(true)} />
 }
 
 function Card({ p, q }) {

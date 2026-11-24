@@ -22,8 +22,8 @@ async def run(url, disable=False, phone='budget'):
         out = {'busy_ms_in_7s': d('TaskDuration'), 'style_ms': d('RecalcStyleDuration'), 'layout_ms': d('LayoutDuration'), 'script_ms': d('ScriptDuration'),
                'running_animations': await pg.evaluate("document.getAnimations().length")}
         await b.close(); return out
-BUDGET_BUSY_MS = 1600   # main-thread busy time allowed in 7 s on a 6x-slowed phone
-BUDGET_ANIMATIONS = 1   # endless animations allowed on the home page
+BUDGET_BUSY_MS = 300    # main-thread busy time allowed in 7 s on a 6x-slowed phone (v1.7: light for every phone)
+BUDGET_ANIMATIONS = 0   # no endless animations anywhere
 
 
 async def main():

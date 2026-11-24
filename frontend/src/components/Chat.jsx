@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 
 // Floating assistant – talks to /api/chat (agent.py: tools + local LLM + loop).
-export default function Chat() {
-  const [open, setOpen] = useState(false)
+export default function Chat({ startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
   const [msgs, setMsgs] = useState([{ role: 'assistant', content: 'Namaste 🙏 I can tell you today\'s rate, delivery charges, how much to buy, or your order status.' }])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
